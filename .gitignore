@@ -1,0 +1,41 @@
+# Environment and secrets
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build and dist
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Chroma persistence (if local)
+chroma_data/
+
+# Uploaded policy PDFs (directory kept via .gitkeep)
+data/documents/*
+!data/documents/.gitkeep
+
+# Test and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
