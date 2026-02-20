@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PolicySummary",
+  "description": "Structured policy section summaries: bullets with citations (page + chunk_id).",
+  "type": "object",
+  "properties": {
+    "section_name": { "type": "string" },
+    "present": { "type": "boolean", "description": "False when information not in document" },
+    "bullets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string" },
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "page": { "type": "integer", "minimum": 1 },
+                "chunk_id": { "type": "string" }
+              },
+              "required": ["page", "chunk_id"]
+            }
+          }
+        },
+        "required": ["text", "citations"]
+      }
+    },
+    "not_found_message": { "type": ["string", "null"] }
+  },
+  "required": ["section_name", "present", "bullets"]
+}
