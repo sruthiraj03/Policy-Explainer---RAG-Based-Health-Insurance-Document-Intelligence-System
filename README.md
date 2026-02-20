@@ -30,30 +30,31 @@ Focus: **transparency**, **trust**, and **structured outputs**.
 ```
 PolicyExplainer/
 ├── backend/
-│   ├── ingestion/        # PDF parsing, chunking, indexing
-│   ├── retrieval/       # Vector search, section-specific queries
-│   ├── summarization/   # Section summaries with citations
-│   ├── qa/              # Grounded Q&A engine (normal, section deep-dive, scenario)
-│   ├── evaluation/      # Metrics (faithfulness, completeness, simplicity)
-│   ├── models/          # Pydantic schemas and domain models
+│   ├── ingestion.py       # PDF parsing, chunking, indexing
+│   ├── retrieval.py       # Vector search, section-specific queries
+│   ├── summarization.py  # Section summaries with citations
+│   ├── qa.py              # Grounded Q&A engine (normal, section deep-dive, scenario)
+│   ├── evaluation.py     # Metrics (faithfulness, completeness, simplicity)
+│   ├── schemas.py          # Pydantic schemas and domain models
 │   ├── config.py        # Centralized env config (get_settings)
-│   ├── storage/         # Vector store (Chroma), document storage (JSON/JSONL)
-│   ├── utils/           # Shared utilities (normalize terms, doc cache)
-│   ├── api/             # FastAPI routes (ingest, summary, qa, evaluate, chunks)
+│   ├── storage.py         # Vector store (Chroma), document storage (JSON/JSONL)
+│   ├── utils.py          # Shared utilities (normalize terms, doc cache)
+│   ├── api.py             # FastAPI routes (ingest, summary, qa, evaluate, chunks)
 │   └── main.py          # FastAPI app entry
 ├── frontend/
-│   └── streamlit_app/   # Streamlit UI
-│       └── app.py
-├── core/
-│   └── sections.py      # Canonical section list
+│   └── app.py   # Streamlit UI
 ├── schema/
+│   ├── summary_schema.json    # Policy Summary Schema
 │   ├── terminology_map.json   # Terminology normalization
 │   └── jargon_terms.json      # Jargon detection for simplicity
 ├── data/
-│   └── documents/       # Per-document storage: {doc_id}/raw.pdf, pages.json, chunks.jsonl, Policy_summary.json, evaluation reports
+│   └── documents/
+│      └── .gitkeep      # Per-document storage: {doc_id}/raw.pdf, pages.json, chunks.jsonl, Policy_summary.json, evaluation reports
 ├── tests/
 ├── .env.example
 ├── requirements.txt
+├── .gitignore
+├── pyproject.toml
 └── README.md
 ```
 
