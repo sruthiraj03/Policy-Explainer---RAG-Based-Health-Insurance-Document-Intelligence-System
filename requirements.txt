@@ -1,6 +1,8 @@
 # PolicyExplainer dependencies
+# --------------------------------------------------------------------
+# This file lists the Python packages required to run PolicyExplainer.
+# --------------------------------------------------------------------
 
-# Backend
 # Backend
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
