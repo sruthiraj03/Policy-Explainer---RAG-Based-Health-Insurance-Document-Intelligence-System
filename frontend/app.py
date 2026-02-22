@@ -1,10 +1,18 @@
-"""PolicyExplainer Streamlit UI: upload, Q&A, section deep-dive, scenario placeholder, evaluation."""
+"""
+PolicyExplainer Streamlit Application
+
+This file implements the frontend user interface for PolicyExplainer,
+an AI-powered system that helps users understand health insurance
+policies in plain English.
+
+Main Features:
+1. Generate Summary
+2. Q&A
+"""
 
 import os
 import streamlit as st
 import requests
-
-from backend.qa import get_preventive_follow_up_questions
 
 API_BASE = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
@@ -17,14 +25,15 @@ CORE_SECTIONS = (
     "Claims/Appeals & Member Rights",
 )
 
-
+# Ensures if a policy PDF is uploaded before using app features
+# and returns the current document ID or None if not available
 def ensure_doc_id():
     if not st.session_state.get("doc_id"):
-        st.info("Upload a policy PDF first to use this tab.")
+        st.info("Please upload your policy document")
         return None
     return st.session_state["doc_id"]
 
-
+# Retrieve and cache document text chunks for displaying evidence and citations
 def chunks_map(doc_id: str) -> dict[str, dict]:
     key = f"_chunks_{doc_id}"
     if key not in st.session_state:
@@ -85,50 +94,87 @@ def confidence_badge(level: str) -> str:
         return "Low confidence"
     return "Confidence: " + (level or "—")
 
+# Main App Title
+st.markdown(
+    "<h1 style='text-align: center; margin-bottom: 0;'>Policy Explainer</h1>",
+    unsafe_allow_html=True
+)
+# Subtitle
+st.markdown(
+    "<p style='text-align: center;'>Your guide to understanding health insurance policies.</p>",
+    unsafe_allow_html=True
+)
 
-st.set_page_config(page_title="PolicyExplainer", layout="wide")
-st.title("PolicyExplainer")
-st.caption("Understand your health insurance policy in plain English.")
+# ----------------Functionality to be included later as part of Q & A suggestions----------------
+# from backend.qa import get_preventive_follow_up_questions
+# if st.button("Show preventive care example questions"):
+#     st.session_state["show_preventive_examples"] = not st.session_state.get("show_preventive_examples", False)
+# if st.session_state.get("show_preventive_examples"):
+#     st.subheader("Preventive care example questions")
+#     st.caption("You can ask these (or similar) questions after uploading a policy.")
+#     for i, q in enumerate(get_preventive_follow_up_questions(), 1):
+#         st.markdown(f"{i}. {q}")
+#     st.divider()
+# ---------------------------------------------------------------------------------------------
 
-if st.button("Show preventive care example questions"):
-    st.session_state["show_preventive_examples"] = not st.session_state.get("show_preventive_examples", False)
-if st.session_state.get("show_preventive_examples"):
-    st.subheader("Preventive care example questions")
-    st.caption("You can ask these (or similar) questions after uploading a policy.")
-    for i, q in enumerate(get_preventive_follow_up_questions(), 1):
-        st.markdown(f"{i}. {q}")
-    st.divider()
+tabSummary, tabQA = st.tabs(["Generate Summary","Q&A"])
 
-with st.sidebar:
-    st.subheader("Policy document")
-    uploaded = st.file_uploader("Upload PDF", type=["pdf"], key="upload_pdf")
-    if uploaded is not None and st.button("Ingest PDF"):
-        with st.spinner("Ingesting…"):
+with tabSummary:
+    st.subheader("Policy Summary")
+
+    uploaded = st.file_uploader(
+        "Upload Your Policy Document (PDF)",
+        type=["pdf"],
+        key="upload_pdf"
+    )
+
+    if uploaded is not None and st.button("Upload PDF"):
+        with st.spinner("Processing document..."):
             try:
                 r = requests.post(
                     f"{API_BASE}/ingest",
                     files={"file": (uploaded.name, uploaded.getvalue(), "application/pdf")},
                     timeout=120,
                 )
+
                 r.raise_for_status()
                 data = r.json()
                 doc_id = data.get("doc_id")
+
                 if doc_id:
                     st.session_state["doc_id"] = doc_id
+
+                    # Clear cached chunks when a new document is uploaded
                     for k in list(st.session_state.keys()):
                         if k.startswith("_chunks_"):
                             del st.session_state[k]
-                    st.success(f"Document ingested. ID: `{doc_id[:8]}…`")
+
+                    st.success("Document processed successfully.")
+
                 else:
-                    st.error("No doc_id in response.")
+                    st.error("Document processing failed.")
+
             except requests.RequestException as e:
                 st.error(f"Ingest failed: {e}")
+
+
     if st.session_state.get("doc_id"):
-        st.caption(f"Current doc: `{st.session_state['doc_id'][:12]}…`")
+        st.caption(
+            f"Current document ID: {st.session_state['doc_id'][:12]}…"
+        )
 
-tab1, tab2, tab3, tab4 = st.tabs(["General Q&A", "Section Deep Dive", "Scenario Generator", "Evaluation"])
+with tabQA:
+    st.subheader("Ask Questions About Your Policy")
+    subtab1, subtab2, subtab3, subtab4 = st.tabs([
+        "General Q&A",
+        "Section Deep Dive",
+        "Scenario Generator",
+        "Evaluation"
+    ])
 
-with tab1:
+
+
+with subtab1:
     doc_id = ensure_doc_id()
     if doc_id:
         q = st.text_input("Ask a question", key="qa_question", placeholder="e.g. What is my deductible?")
@@ -152,7 +198,7 @@ with tab1:
                 except requests.RequestException as e:
                     st.error(f"Request failed: {e}")
 
-with tab2:
+with subtab2:
     doc_id = ensure_doc_id()
     if doc_id:
         section = st.selectbox("Section", options=CORE_SECTIONS, key="section_select")
@@ -201,14 +247,14 @@ with tab2:
             except requests.RequestException as e:
                 st.error(f"Request failed: {e}")
 
-with tab3:
+with subtab3:
     doc_id = ensure_doc_id()
     if doc_id:
         st.info("Scenario generator is a placeholder. Use General Q&A with example scenario questions (e.g. 'What would happen if I visit the ER?').")
     else:
         st.info("Upload a policy PDF first.")
 
-with tab4:
+with subtab4:
     doc_id = ensure_doc_id()
     if doc_id:
         if st.button("Run evaluation", key="eval_btn"):
