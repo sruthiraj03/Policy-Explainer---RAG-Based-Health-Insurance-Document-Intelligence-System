@@ -13,8 +13,12 @@ Main Features:
 import os
 import streamlit as st
 import requests
+from dotenv import load_dotenv
 
-API_BASE = os.environ.get("API_BASE_URL", "http://localhost:8000")
+load_dotenv()
+
+API_BASE = os.getenv("API_BASE", "http://127.0.0.1:8000")
+# API_BASE = os.environ.get("API_BASE_URL", "http://localhost:8000")
 
 CORE_SECTIONS = (
     "Plan Snapshot",
@@ -171,8 +175,6 @@ with tabQA:
         "Scenario Generator",
         "Evaluation"
     ])
-
-
 
 with subtab1:
     doc_id = ensure_doc_id()
