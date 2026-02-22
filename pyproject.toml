@@ -1,7 +1,10 @@
+# Project configuration for PolicyExplainer: build settings, dependencies, and tool configs.
+# Specifies setuptools as the tool used to build and install the project
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
+# Defines project information and the main Python packages required to run PolicyExplainer
 [project]
 name = "policy-explainer"
 version = "0.1.0"
@@ -18,13 +21,16 @@ dependencies = [
     "pydantic-settings>=2.0.0",
 ]
 
+# Packages used for testing and development (not required to run the application)
 [project.optional-dependencies]
 dev = ["pytest>=7.4.0", "pytest-asyncio>=0.23.0"]
 
+# Specifies which folders contain the Python application code (backend and frontend)
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["backend*", "core*", "frontend*"]
+include = ["backend*", "frontend*"]
 
+# Defines how automated tests are executed and where test files are located
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
