@@ -135,7 +135,7 @@ def load_policy_summary(document_id: str, base_path: Path | None = None) -> Poli
 
 # --- Vector store (Chroma) ---
 
-@lru_cache(maxsize=1)  # <-- This is the magic fix for Windows!
+@lru_cache(maxsize=1)
 def _get_client():
     settings = get_settings()
     path = settings.get_vector_db_path_resolved()
@@ -151,6 +151,7 @@ def _get_embedding_function():
     )
 
 
+@lru_cache(maxsize=1)  # <-- ADD THIS HERE TO FIX THE SYNC ISSUE
 def _get_collection():
     client = _get_client()
     ef = _get_embedding_function()
@@ -177,7 +178,8 @@ def add_chunks(doc_id: str, chunks: list[Chunk]) -> None:
     metadatas = [{"chunk_id": c.chunk_id, "page_number": c.page_number, "doc_id": c.doc_id} for c in chunks]
     collection.add(ids=ids, documents=documents, metadatas=metadatas)
 
-    print("✅ DEBUG: Chunks successfully saved to DB!")
+    # NEW: Let's prove the DB actually saved them!
+    print(f"✅ DEBUG: Chunks saved! Total chunks sitting in DB: {collection.count()}")
 
 
 def query(doc_id: str, query_text: str, top_k: int = 5) -> list[dict[str, Any]]:
@@ -204,5 +206,6 @@ def query(doc_id: str, query_text: str, top_k: int = 5) -> list[dict[str, Any]]:
     for i, (cid, doc_text) in enumerate(zip(ids, docs, strict=False)):
         meta = metas[i] if i < len(metas) else {}
         distance = dists[i] if i < len(dists) else None
-        out.append({"chunk_id": cid, "page_number": meta.get("page_number", 0), "doc_id": meta.get("doc_id", doc_id), "chunk_text": doc_text or "", "distance": distance})
+        out.append({"chunk_id": cid, "page_number": meta.get("page_number", 0), "doc_id": meta.get("doc_id", doc_id),
+                    "chunk_text": doc_text or "", "distance": distance})
     return out
