@@ -1,28 +1,30 @@
-"""FastAPI app: mounts ingest, summary, qa, evaluate, chunks."""
-
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+# Updated imports to match the simplified api.py
 from backend.api import (
-    router_chunks,
-    router_evaluate,
     router_ingest,
-    router_qa,
     router_summary,
+    router_qa,
+    router_evaluate
 )
 
-app = FastAPI(
-    title="PolicyExplainer",
-    description="AI-powered insurance policy document explanation API.",
-    version="0.1.0",
+app = FastAPI(title="PolicyExplainer API")
+
+# Enable CORS so Streamlit can talk to FastAPI
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-app.include_router(router_ingest, tags=["ingest"])
-app.include_router(router_summary, prefix="/summary", tags=["summary"])
-app.include_router(router_qa, prefix="/qa", tags=["qa"])
-app.include_router(router_evaluate, prefix="/evaluate", tags=["evaluate"])
-app.include_router(router_chunks, prefix="/chunks", tags=["chunks"])
+# Include the routers
+app.include_router(router_ingest, tags=["Ingest"])
+app.include_router(router_summary, prefix="/summary", tags=["Summary"])
+app.include_router(router_qa, prefix="/qa", tags=["Q&A"])
+app.include_router(router_evaluate, prefix="/evaluate", tags=["Evaluate"])
 
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+@app.get("/")
+async def root():
+    return {"message": "PolicyExplainer API is running"}
