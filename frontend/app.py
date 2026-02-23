@@ -275,7 +275,11 @@ def render_summary_content():
                 # Bullets
                 for bullet in section.get("bullets", []):
                     cites = ", ".join([f"p. {c['page']}" for c in bullet.get("citations", [])])
-                    st.markdown(f"• {bullet['text']} *({cites})*")
+
+                    # Prevent Streamlit from formatting dollar amounts as LaTeX math equations
+                    safe_text = bullet['text'].replace("$", "\$")
+
+                    st.markdown(f"• {safe_text} *({cites})*")
 
 
 def render_qa_content():
@@ -294,12 +298,20 @@ def render_qa_content():
                 st.markdown("### Answer")
 
                 if out.get("answer_type") == "scenario":
-                    st.success(f"**{out.get('header', 'Scenario Breakdown')}**")
+                    # Escape dollar signs in the header just in case!
+                    safe_header = out.get('header', 'Scenario Breakdown').replace("$", "\$")
+                    st.success(f"**{safe_header}**")
+
                     for step in out.get("steps", []):
                         cites = ", ".join([f"p. {c['page']}" for c in step.get("citations", [])])
-                        st.markdown(f"**{step.get('step_number')}.** {step.get('text')} *({cites})*")
+                        # Prevent Streamlit from formatting dollar amounts as math equations
+                        safe_text = step.get('text', '').replace("$", "\$")
+                        st.markdown(f"**{step.get('step_number')}.** {safe_text} *({cites})*")
                 else:
-                    st.write(out.get("answer"))
+                    # Escape dollar signs in standard text answers
+                    safe_answer = out.get("answer", "").replace("$", "\$")
+                    st.write(safe_answer)
+
                     if out.get("citations"):
                         cites = ", ".join([f"p. {c['page']}" for c in out.get("citations", [])])
                         st.caption(f"**Sources:** {cites}")
