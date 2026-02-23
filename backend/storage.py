@@ -187,29 +187,25 @@ def query(doc_id: str, query_text: str, top_k: int = 5) -> list[dict[str, Any]]:
         return []
 
     collection = _get_collection()
-    db_size = collection.count()
 
-    print(f"🔎 DEBUG: Searching DB for: '{query_text}'")
+    # NEW: We must use the doc_id to isolate this specific document
+    # Using str(doc_id) ensures the UUID object is a clean string for Chroma
+    where_filter = {"doc_id": str(doc_id)}
 
-    if db_size == 0:
-        print("⚠️ DEBUG: Database is empty!")
-        return []
-
-    # FIX 1: Never ask for more chunks than actually exist in the database
-    safe_top_k = min(top_k, db_size)
+    print(f"🔎 DEBUG: Searching ONLY Doc [{doc_id}] for: '{query_text}'")
 
     try:
-        # FIX 2: We temporarily removed the 'where' filter to bypass the Windows metadata bug.
-        # Since you are uploading one PDF at a time, this is perfectly safe.
         results = collection.query(
             query_texts=[query_text.strip()],
-            n_results=safe_top_k,
+            n_results=top_k,
+            where=where_filter,  # <-- Put the filter back!
             include=["documents", "metadatas", "distances"],
         )
 
         ids = results.get("ids", [[]])[0]
-        print(f"🎯 DEBUG: Found {len(ids)} matching chunks in DB.")
+        print(f"🎯 DEBUG: Found {len(ids)} matching chunks for this specific document.")
 
+        # ... (keep the rest of your formatting logic the same) ...
         docs = results.get("documents", [[]])[0]
         metas = results.get("metadatas", [[]])[0]
         dists = results.get("distances", [[]])[0]
