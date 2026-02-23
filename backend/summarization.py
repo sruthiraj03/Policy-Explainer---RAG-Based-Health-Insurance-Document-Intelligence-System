@@ -134,28 +134,41 @@ def summarize_section(
     valid_bullets = []
     for b in parsed.get("bullets", []):
         text = normalize_text(b.get("text", ""), term_map)
-        cites = [
-            Citation(page=c.get('page', 0), chunk_id=c.get('chunk_id', ''))
-            for c in b.get("citations", [])
-            if str(c.get("chunk_id")) in allowed_ids
-        ]
+        cites = []
+        for c in b.get("citations", []):
+            if str(c.get("chunk_id")) in allowed_ids:
+                # Proactive Fix: Force page to integer to avoid Pydantic type errors
+                try:
+                    page_num = int(c.get('page', 0))
+                except (ValueError, TypeError):
+                    page_num = 0
+                cites.append(Citation(page=page_num, chunk_id=str(c.get("chunk_id"))))
+
         # Only keep bullets that have at least one valid source in the doc
         if cites:
             valid_bullets.append(BulletWithCitations(text=text, citations=cites))
 
-    # Use existing evaluation functions to check the summary quality
-    _, issues = validate_section_summary(valid_bullets)
-    conf = confidence_for_section(valid_bullets, issues, len(chunks))
+    # 2. Construct the preliminary summary object FIRST (Fixes the 'present' attribute error)
+    final_bullets = valid_bullets[:DETAILED_MAX_BULLETS if detail_level == "detailed" else STANDARD_MAX_BULLETS]
 
-    # 3. Construct the final confidence-wrapped object
-    return SectionSummaryWithConfidence(
+    preliminary_summary = SectionSummaryWithConfidence(
         section_name=section_name,
-        present=True if valid_bullets else False,
-        bullets=valid_bullets[:DETAILED_MAX_BULLETS if detail_level == "detailed" else STANDARD_MAX_BULLETS],
-        not_found_message=None if valid_bullets else NOT_FOUND_MESSAGE,
-        confidence=conf,
-        validation_issues=issues
+        present=True if final_bullets else False,
+        bullets=final_bullets,
+        not_found_message=None if final_bullets else NOT_FOUND_MESSAGE,
+        confidence="low", # Temporary placeholder
+        validation_issues=[]
     )
+
+    # 3. Now validate the complete object!
+    _, issues = validate_section_summary(preliminary_summary)
+
+    # 4. Calculate final confidence and update the object
+    conf = confidence_for_section(final_bullets, issues, len(chunks))
+    preliminary_summary.confidence = conf
+    preliminary_summary.validation_issues = issues
+
+    return preliminary_summary
 
 def run_full_summary_pipeline(
     doc_id: str,
