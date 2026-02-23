@@ -162,11 +162,11 @@ def summarize_section(
 
     # 3. Now validate the complete object!
     _, issues = validate_section_summary(preliminary_summary)
+    preliminary_summary.validation_issues = issues
 
     # 4. Calculate final confidence and update the object
-    conf = confidence_for_section(final_bullets, issues, len(chunks))
+    conf = confidence_for_section(preliminary_summary)
     preliminary_summary.confidence = conf
-    preliminary_summary.validation_issues = issues
 
     return preliminary_summary
 
