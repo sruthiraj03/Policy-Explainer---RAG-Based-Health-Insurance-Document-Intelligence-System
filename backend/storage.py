@@ -4,6 +4,7 @@ import json
 import uuid
 from pathlib import Path
 from typing import Any
+from functools import lru_cache  # <-- Added for Windows DB Locking Fix
 
 import chromadb
 from chromadb.utils import embedding_functions
@@ -134,6 +135,7 @@ def load_policy_summary(document_id: str, base_path: Path | None = None) -> Poli
 
 # --- Vector store (Chroma) ---
 
+@lru_cache(maxsize=1)  # <-- This is the magic fix for Windows!
 def _get_client():
     settings = get_settings()
     path = settings.get_vector_db_path_resolved()
@@ -167,23 +169,34 @@ def add_chunks(doc_id: str, chunks: list[Chunk]) -> None:
         collection.delete(where={"doc_id": doc_id})
     except Exception:
         pass
+
+    print(f"🧠 DEBUG: Adding {len(chunks)} chunks to Vector DB...")
+
     ids = [c.chunk_id for c in chunks]
     documents = [c.chunk_text for c in chunks]
     metadatas = [{"chunk_id": c.chunk_id, "page_number": c.page_number, "doc_id": c.doc_id} for c in chunks]
     collection.add(ids=ids, documents=documents, metadatas=metadatas)
+
+    print("✅ DEBUG: Chunks successfully saved to DB!")
 
 
 def query(doc_id: str, query_text: str, top_k: int = 5) -> list[dict[str, Any]]:
     if not query_text.strip():
         return []
     collection = _get_collection()
+
+    print(f"🔎 DEBUG: Searching DB for: '{query_text}'")
+
     results = collection.query(
         query_texts=[query_text.strip()],
         n_results=top_k,
         where={"doc_id": doc_id},
         include=["documents", "metadatas", "distances"],
     )
+
     ids = results["ids"][0] if results["ids"] else []
+    print(f"🎯 DEBUG: Found {len(ids)} matching chunks in DB.")
+
     docs = results["documents"][0] if results["documents"] else []
     metas = results["metadatas"][0] if results["metadatas"] else []
     dists = results["distances"][0] if results["distances"] else []
