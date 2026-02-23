@@ -166,20 +166,30 @@ def add_chunks(doc_id: str, chunks: list[Chunk]) -> None:
     if not chunks:
         return
     collection = _get_collection()
+    doc_id_str = str(doc_id)  # Ensure string format for Chroma
     try:
-        collection.delete(where={"doc_id": doc_id})
-    except Exception:
-        pass
+        existing = collection.get(where={"doc_id": doc_id_str})
+        if existing and existing["ids"]:
+            print(f"♻️ DEBUG: Cleaning up {len(existing['ids'])} old chunks for {doc_id_str}")
+            collection.delete(where={"doc_id": doc_id_str})
+    except Exception as e:
+        print(f"⚠️ DEBUG: Cleanup skipped: {e}")
 
-    print(f"🧠 DEBUG: Adding {len(chunks)} chunks to Vector DB...")
-
-    ids = [c.chunk_id for c in chunks]
+    ids = [str(c.chunk_id) for c in chunks]
     documents = [c.chunk_text for c in chunks]
-    metadatas = [{"chunk_id": c.chunk_id, "page_number": c.page_number, "doc_id": c.doc_id} for c in chunks]
+    metadatas = [
+        {
+            "chunk_id": str(c.chunk_id),
+            "page_number": int(c.page_number),
+            "doc_id": doc_id_str
+        } for c in chunks
+    ]
+
     collection.add(ids=ids, documents=documents, metadatas=metadatas)
 
     # NEW: Let's prove the DB actually saved them!
-    print(f"✅ DEBUG: Chunks saved! Total chunks sitting in DB: {collection.count()}")
+    _get_client().heartbeat()
+    print(f"✅ DEBUG: Index synchronized. Total DB Count: {collection.count()}")
 
 
 def query(doc_id: str, query_text: str, top_k: int = 5) -> list[dict[str, Any]]:
@@ -187,18 +197,16 @@ def query(doc_id: str, query_text: str, top_k: int = 5) -> list[dict[str, Any]]:
         return []
 
     collection = _get_collection()
-
-    # NEW: We must use the doc_id to isolate this specific document
-    # Using str(doc_id) ensures the UUID object is a clean string for Chroma
-    where_filter = {"doc_id": str(doc_id)}
-
-    print(f"🔎 DEBUG: Searching ONLY Doc [{doc_id}] for: '{query_text}'")
+    doc_id_str = str(doc_id)
+    where_filter = {"doc_id": doc_id_str}
+    _get_client().heartbeat()
+    print(f"🔎 DEBUG: Searching ONLY Doc [{doc_id_str}] for: '{query_text}'")
 
     try:
         results = collection.query(
             query_texts=[query_text.strip()],
             n_results=top_k,
-            where=where_filter,  # <-- Put the filter back!
+            where=where_filter,
             include=["documents", "metadatas", "distances"],
         )
 
