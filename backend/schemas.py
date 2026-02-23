@@ -1,156 +1,156 @@
-"""API and domain models (Pydantic)."""
+"""
+API and Domain Models (Pydantic).
+This module defines the 'contracts' between your LLM, your backend, and your UI.
+Using Pydantic ensures that if the LLM hallucinates a field name, the code fails
+early (Validation Error) rather than passing bad data to the user.
+"""
 
-from typing import Literal
-
+from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
+# --- Constants & Literals ---
 
-class ExtractedPage(BaseModel):
-    """Single page from PDF extraction; used for citations."""
+# define a strict schema for the LLM to follow (trying to limit the issues with hallucination)
+SectionName = Literal[
+    "Plan Snapshot",
+    "Cost Summary",
+    "Summary of Covered Services",
+    "Administrative Conditions",
+    "Exclusions & Limitations",
+    "Claims, Appeals & Member Rights"
+]
 
-    page_number: int = Field(..., ge=1, description="1-based page number")
-    text: str = Field(default="", description="Extracted text for this page")
-
-
-class Chunk(BaseModel):
-    """One chunk of document text for retrieval; citation-friendly (single page)."""
-
-    chunk_id: str = Field(..., description="ID like c_{page}_{index}")
-    page_number: int = Field(..., ge=1, description="1-based page number for citations")
-    doc_id: str = Field(..., description="Parent document ID")
-    chunk_text: str = Field(default="", description="Chunk content")
-
-
-DetailLevel = Literal["standard", "detailed"]
-NOT_FOUND_MESSAGE = "Not found in this document."
-
-
-class Citation(BaseModel):
-    """Internal citation: page + chunk_id. UI displays page only."""
-
-    page: int = Field(..., ge=1, description="1-based page number")
-    chunk_id: str = Field(..., description="Chunk id e.g. c_12_3")
-
-
-class BulletWithCitations(BaseModel):
-    """One summary bullet with citations."""
-
-    text: str = Field(..., description="Plain English bullet text")
-    citations: list[Citation] = Field(default_factory=list, description="page + chunk_id for each source")
-
-
-class SectionSummaryOutput(BaseModel):
-    """Structured output for one section: bullets with citations or not found."""
-
-    section_name: str = Field(..., description="Section name e.g. Cost Summary")
-    present: bool = Field(..., description="False when information not in document")
-    bullets: list[BulletWithCitations] = Field(default_factory=list, description="4-6 (standard) or 8-12 (detailed) bullets")
-    not_found_message: str | None = Field(default=None, description="Set to NOT_FOUND_MESSAGE when present is False")
-
-
+# Standardizing the confidence level (instead of numeric)
 ConfidenceLevel = Literal["high", "medium", "low"]
 
+# Categorizes the type of Q&A response for different UI rendering logic.
+QA_ANSWER_TYPE = Literal[
+    "answerable",    # Direct answer found in doc
+    "not_found",     # Information missing; refer to website
+    "ambiguous",     # Doc is unclear
+    "conflict",      # Two parts of the doc say different things
+    "section_detail",# Deep dive into one policy section
+    "scenario"       # Example: 'If I break my leg, what do I pay?'
+]
+
+NOT_FOUND_MESSAGE = "Not found in this document."
 DEFAULT_DISCLAIMER = (
-    "This summary is for informational purposes only. "
-    "It does not replace the full policy document. "
-    "See the complete policy for binding terms and conditions."
+    "This summary is for informational purposes only. It does not replace the full policy document."
 )
 
+# --- Base Components ---
+
+class Citation(BaseModel):
+    """
+    The 'Evidence' for a claim.
+    By requiring chunk_id, you can prove exactly which part of the
+    Vector Database (Chroma) the LLM used.
+    """
+    page: int = Field(..., ge=1, description="1-based page number from the PDF")
+    chunk_id: str = Field(..., description="The unique ID of the text chunk (e.g., c_1_15)")
+
+class BulletWithCitations(BaseModel):
+    """
+    A single piece of information.
+    Instead of a giant block of text, we force the LLM to provide 'Atomic'
+    bullets where every single claim has a source citation.
+    """
+    text: str = Field(..., description="The policy detail written in plain English")
+    citations: list[Citation] = Field(default_factory=list, description="Source links for this bullet")
+
+# --- Section Summaries ---
+
+class SectionSummaryBase(BaseModel):
+    """
+    Matches your summary_schema.json perfectly.
+    'present' is the 'Truth Flag'—if the LLM can't find info for a section,
+    it must mark this False instead of hallucinating.
+    """
+    section_name: SectionName
+    present: bool
+    bullets: list[BulletWithCitations] = Field(default_factory=list)
+    not_found_message: Optional[str] = Field(default=None)
+
+class SectionSummaryWithConfidence(SectionSummaryBase):
+    """
+    Extension of the base schema for internal evaluation.
+    'validation_issues' allows you to track if the LLM missed specific
+    details (like missing out-of-network costs).
+    """
+    confidence: ConfidenceLevel
+    validation_issues: list[str] = Field(
+        default_factory=list,
+        description="Notes on missing data or extraction errors"
+    )
+
+# --- Full Policy Summary ---
 
 class DocMetadata(BaseModel):
-    """Metadata extracted for the summarized document."""
-
-    doc_id: str = Field(..., description="Document ID")
-    generated_at: str = Field(..., description="ISO 8601 timestamp when summary was generated")
-    total_pages: int = Field(..., ge=0, description="Number of pages in the document")
-    source_file: str | None = Field(default=None, description="Original filename if known")
-
-
-class SectionSummaryWithConfidence(BaseModel):
-    """Section summary plus confidence label for full summary."""
-
-    section_name: str = Field(...)
-    present: bool = Field(...)
-    bullets: list[BulletWithCitations] = Field(default_factory=list)
-    not_found_message: str | None = Field(default=None)
-    confidence: ConfidenceLevel = Field(...)
-    validation_issues: list[str] = Field(default_factory=list)
-
+    """Tracks the 'Identity' of the document being processed."""
+    doc_id: str = Field(..., description="Unique hash or ID for the policy")
+    generated_at: str = Field(..., description="Timestamp for versioning")
+    total_pages: int = Field(..., ge=0)
+    source_file: Optional[str] = None
 
 class PolicySummaryOutput(BaseModel):
-    """Full policy summary JSON: metadata, disclaimer, sections with confidence."""
+    """
+    The final object sent to the frontend.
+    It combines the metadata, the legal disclaimer, and all extracted sections.
+    """
+    metadata: DocMetadata
+    disclaimer: str = Field(default=DEFAULT_DISCLAIMER)
+    sections: list[SectionSummaryWithConfidence]
 
-    metadata: DocMetadata = Field(...)
-    disclaimer: str = Field(...)
-    sections: list[SectionSummaryWithConfidence] = Field(default_factory=list)
-
-
-QA_ANSWER_TYPE = Literal["answerable", "not_found", "ambiguous", "conflict", "section_detail", "scenario"]
-
-QA_RESPONSE_DISCLAIMER = (
-    "This explanation is for informational purposes only and is not medical or legal advice. "
-    "Please refer to your official policy documents or contact your insurer for confirmation."
-)
-
-
-class PageCitation(BaseModel):
-    """Page-only citation for UI (section_detail response)."""
-
-    page: int = Field(..., ge=1)
-
+# --- Q&A Components ---
 
 class QAResponseOutput(BaseModel):
-    """Structured Q&A response: answer, type, citations, confidence, disclaimer."""
-
-    doc_id: str = Field(...)
-    question: str = Field(...)
-    answer: str = Field(...)
-    answer_type: QA_ANSWER_TYPE = Field(...)
+    """
+    The output model for the 'Ask a Question' feature.
+    Ensures that every answer the user gets is grounded and cited.
+    """
+    doc_id: str
+    question: str
+    answer: str
+    answer_type: QA_ANSWER_TYPE
     citations: list[Citation] = Field(default_factory=list)
-    confidence: ConfidenceLevel = Field(...)
-    disclaimer: str = Field(...)
+    confidence: ConfidenceLevel
+    disclaimer: str = Field(default=DEFAULT_DISCLAIMER)
     validation_issues: list[str] = Field(default_factory=list)
-    answer_display: str | None = Field(default=None)
 
+# -- Chunking and Extracting --
+class ExtractedPage(BaseModel):
+    """
+    Represents the raw text of a single PDF page.
+    Used during the extraction phase before chunking.
+    """
+    page_number: int = Field(..., ge=1, description="1-based page number")
+    text: str = Field(default="", description="The full cleaned text of the page")
 
-class SectionDetailQAResponseOutput(BaseModel):
-    """Q&A response for section deep-dive: bullets (8–12), page citations."""
+class Chunk(BaseModel):
+    """
+    A specific segment of text used for Vector Search.
+    This is the 'unit of retrieval' for your RAG system.
+    """
+    chunk_id: str = Field(..., description="Unique ID, usually c_{page}_{index}")
+    page_number: int = Field(..., ge=1)
+    doc_id: str = Field(..., description="ID of the parent document")
+    chunk_text: str = Field(..., description="The actual text content used for embeddings")
 
-    doc_id: str = Field(...)
-    question: str = Field(...)
-    answer_type: Literal["section_detail"] = Field(default="section_detail")
-    section_id: str = Field(...)
-    answer: str = Field(...)
-    bullets: list[BulletWithCitations] = Field(default_factory=list)
-    citations: list[PageCitation] = Field(default_factory=list)
-    confidence: ConfidenceLevel = Field(...)
-    disclaimer: str = Field(...)
-
-
+# -- Scenario Logic --
 class ScenarioStepOutput(BaseModel):
     """One step in an example scenario; every numeric value must be cited."""
-
     step_number: int = Field(..., ge=1)
-    text: str = Field(...)
-    citations: list[PageCitation] = Field(default_factory=list)
-
+    text: str = Field(..., description="Plain English description of the cost step")
+    citations: list[Citation] = Field(default_factory=list)
 
 class ScenarioQAResponseOutput(BaseModel):
     """Example scenario response: 3–6 steps, policy-derived numbers only."""
-
     doc_id: str = Field(...)
     question: str = Field(...)
     answer_type: Literal["scenario"] = Field(default="scenario")
     scenario_type: str = Field(...)
-    header: str = Field(...)
-    steps: list[ScenarioStepOutput] = Field(default_factory=list, max_length=6)
-    not_found_message: str | None = Field(default=None)
-    citations: list[PageCitation] = Field(default_factory=list)
+    header: str = Field(default="Example Scenario (Hypothetical – Based on Policy Terms)")
+    steps: list[ScenarioStepOutput] = Field(default_factory=list)
+    not_found_message: Optional[str] = Field(default=None)
     confidence: ConfidenceLevel = Field(...)
-    disclaimer: str = Field(...)
-
-
-class PreventiveQAResponseOutput(QAResponseOutput):
-    """Q&A response for preventive care: may include general guidance and follow-up questions."""
-
-    follow_up_questions: list[str] = Field(default_factory=list)
+    disclaimer: str = Field(default=DEFAULT_DISCLAIMER)
