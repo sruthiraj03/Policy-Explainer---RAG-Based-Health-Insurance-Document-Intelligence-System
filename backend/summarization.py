@@ -143,12 +143,8 @@ def summarize_section(
         if cites:
             valid_bullets.append(BulletWithCitations(text=text, citations=cites))
 
-    # 2. Perform Validation and Confidence scoring
-    valid_chunk_ids = {c.get("chunk_id") for c in chunks}
-    valid_pages = {c.get("page_number") for c in chunks}
-
     # Use existing evaluation functions to check the summary quality
-    _, issues = validate_section_summary(valid_bullets, valid_chunk_ids, valid_pages)
+    _, issues = validate_section_summary(valid_bullets)
     conf = confidence_for_section(valid_bullets, issues, len(chunks))
 
     # 3. Construct the final confidence-wrapped object
