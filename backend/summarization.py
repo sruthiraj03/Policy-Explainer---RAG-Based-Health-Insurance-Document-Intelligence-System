@@ -101,6 +101,7 @@ def summarize_section(
     # Prompt logic uses strict rules to ensure the LLM stays grounded in the chunks
     response = client.chat.completions.create(
         model=settings.llm_model,
+        response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": "You are a policy document summarizer. Use ONLY provided chunks."},
             {"role": "user", "content": f"Summarize {section_name} using: {context}"},
