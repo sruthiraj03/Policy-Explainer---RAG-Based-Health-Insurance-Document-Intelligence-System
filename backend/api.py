@@ -8,15 +8,15 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from backend import storage
-# Fixed: Renamed to match the updated evaluation.py runner
 from backend.evaluation import run_all_evaluations
 from backend.ingestion import run_ingest
-from backend.qa import ask, route_question, route_scenario_question
+from backend.qa import route_question  # We only need the unified router now!
 from backend.retrieval import CORE_SECTIONS, retrieve_for_section
 from backend.summarization import run_full_summary_pipeline, summarize_section
 
 # --- Ingest: PDF Upload & Processing ---
 router_ingest = APIRouter()
+
 
 @router_ingest.post("/ingest")
 async def ingest(file: UploadFile) -> dict:
@@ -26,7 +26,6 @@ async def ingest(file: UploadFile) -> dict:
 
     try:
         content = await file.read()
-        # Basic PDF header validation (Standard MSBA data cleaning practice)
         if len(content) < 4 or content[:4] != b"%PDF":
             raise HTTPException(status_code=400, detail="Invalid PDF format")
 
@@ -35,18 +34,20 @@ async def ingest(file: UploadFile) -> dict:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ingest failed: {e}")
 
+
 # --- Summary: LLM Extraction ---
 router_summary = APIRouter()
+
 
 @router_summary.post("/{doc_id}")
 async def post_summary(doc_id: str) -> dict:
     """Runs the full RAG pipeline for all 6 sections defined in the schema."""
     try:
-        # Returns PolicySummaryOutput (Metadata + All 6 sections)
         summary = run_full_summary_pipeline(doc_id)
         return summary.model_dump()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router_summary.post("/{doc_id}/section/{section_id}")
 async def post_section_summary(doc_id: str, section_id: str) -> dict:
@@ -55,46 +56,42 @@ async def post_section_summary(doc_id: str, section_id: str) -> dict:
         raise HTTPException(status_code=400, detail="Invalid section ID")
     try:
         chunks = retrieve_for_section(doc_id, section_id)
-        # We use detailed mode here to provide 8-12 bullets instead of 4-6
         out = summarize_section(section_id, chunks, detail_level="detailed")
         return out.model_dump()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 # --- Q&A: Grounded Retrieval ---
 router_qa = APIRouter()
+
 
 class QABody(BaseModel):
     question: str
 
+
 @router_qa.post("/{doc_id}")
 async def ask_endpoint(doc_id: str, body: QABody) -> dict:
-    """Handles user questions using a routed Q&A approach (Scenario vs. Fact)."""
+    """Handles user questions using the unified Q&A router."""
     question = (body.question or "").strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question is required")
     try:
-        # Route 1: Is this about a specific section deep-dive?
-        section_detail = route_question(doc_id, question)
-        if section_detail: return section_detail.model_dump()
-
-        # Route 2: Is this a scenario? (e.g., 'What if I break my leg?')
-        scenario = route_scenario_question(doc_id, question)
-        if scenario: return scenario.model_dump()
-
-        # Default: General Grounded RAG
-        return ask(doc_id, question, top_k=6).model_dump()
+        # The unified route_question now automatically handles Scenarios, Deep-Dives, and Standard QA!
+        response_obj = route_question(doc_id, question)
+        return response_obj.model_dump()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 # --- Evaluate: Analytics & Metrics ---
 router_evaluate = APIRouter()
+
 
 @router_evaluate.post("/{doc_id}")
 async def evaluate(doc_id: str) -> dict:
     """Triggers the judge module to calculate faithfulness and completeness scores."""
     try:
-        # Fixed: Using the correct runner name from evaluation.py
         return run_all_evaluations(doc_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
