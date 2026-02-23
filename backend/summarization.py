@@ -69,10 +69,11 @@ def _parse_llm_json(raw: str) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
 
+
 def summarize_section(
-    section_name: str,
-    chunks: list[dict[str, Any]],
-    detail_level: DetailLevel = "standard",
+        section_name: str,
+        chunks: list[dict[str, Any]],
+        detail_level: DetailLevel = "standard",
 ) -> SectionSummaryWithConfidence:
     """
     The main logic for a single section summary.
@@ -98,19 +99,32 @@ def summarize_section(
     settings = get_settings()
     client = OpenAI(api_key=settings.openai_api_key)
 
-    # Prompt logic uses strict rules to ensure the LLM stays grounded in the chunks
-    response = client.chat.completions.create(
-        model=settings.llm_model,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": "You are a policy document summarizer. Use ONLY provided chunks."},
-            {"role": "user", "content": f"Summarize {section_name} using: {context}"},
-        ],
-        temperature=0.1,  # Low temperature to reduce hallucination
-    )
+    # --- THE FIX: Explicitly enforce JSON output and structure ---
+    system_prompt = f"""You are a policy document summarizer. Use ONLY provided chunks.
+    You MUST output your response as a valid JSON object with exactly these keys:
+    - "present": boolean (true if info is found, false if not)
+    - "bullets": a list of dicts, each with "text" (the summary point) and "citations" (a list of dicts with "chunk_id" and "page").
+    """
 
-    raw = (response.choices[0].message.content or "").strip()
-    parsed = _parse_llm_json(raw)
+    # Prompt logic uses strict rules to ensure the LLM stays grounded in the chunks
+    try:
+        response = client.chat.completions.create(
+            model=settings.llm_model,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Summarize {section_name} using: {context}"},
+            ],
+            temperature=0.1,  # Low temperature to reduce hallucination
+        )
+
+        raw = (response.choices[0].message.content or "").strip()
+        print(f"🤖 DEBUG SUMMARY LLM OUTPUT for {section_name}: {raw[:100]}...")  # Let's print a snippet
+        parsed = _parse_llm_json(raw)
+
+    except Exception as e:
+        print(f"❌ DEBUG: OpenAI API Call Failed for {section_name}: {e}")
+        return empty_res
 
     if not parsed or not parsed.get("present"):
         return empty_res
@@ -121,9 +135,9 @@ def summarize_section(
     for b in parsed.get("bullets", []):
         text = normalize_text(b.get("text", ""), term_map)
         cites = [
-            Citation(page=c['page'], chunk_id=c['chunk_id'])
+            Citation(page=c.get('page', 0), chunk_id=c.get('chunk_id', ''))
             for c in b.get("citations", [])
-            if c.get("chunk_id") in allowed_ids
+            if str(c.get("chunk_id")) in allowed_ids
         ]
         # Only keep bullets that have at least one valid source in the doc
         if cites:
@@ -140,9 +154,9 @@ def summarize_section(
     # 3. Construct the final confidence-wrapped object
     return SectionSummaryWithConfidence(
         section_name=section_name,
-        present=True,
+        present=True if valid_bullets else False,
         bullets=valid_bullets[:DETAILED_MAX_BULLETS if detail_level == "detailed" else STANDARD_MAX_BULLETS],
-        not_found_message=None,
+        not_found_message=None if valid_bullets else NOT_FOUND_MESSAGE,
         confidence=conf,
         validation_issues=issues
     )

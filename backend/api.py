@@ -46,6 +46,8 @@ async def post_summary(doc_id: str) -> dict:
         summary = run_full_summary_pipeline(doc_id)
         return summary.model_dump()
     except Exception as e:
+        import traceback             # <-- ADD THIS
+        traceback.print_exc()        # <-- ADD THIS: It forces the terminal to print the red error!
         raise HTTPException(status_code=500, detail=str(e))
 
 
