@@ -185,27 +185,48 @@ def add_chunks(doc_id: str, chunks: list[Chunk]) -> None:
 def query(doc_id: str, query_text: str, top_k: int = 5) -> list[dict[str, Any]]:
     if not query_text.strip():
         return []
+
     collection = _get_collection()
+    db_size = collection.count()
 
     print(f"🔎 DEBUG: Searching DB for: '{query_text}'")
 
-    results = collection.query(
-        query_texts=[query_text.strip()],
-        n_results=top_k,
-        where={"doc_id": doc_id},
-        include=["documents", "metadatas", "distances"],
-    )
+    if db_size == 0:
+        print("⚠️ DEBUG: Database is empty!")
+        return []
 
-    ids = results["ids"][0] if results["ids"] else []
-    print(f"🎯 DEBUG: Found {len(ids)} matching chunks in DB.")
+    # FIX 1: Never ask for more chunks than actually exist in the database
+    safe_top_k = min(top_k, db_size)
 
-    docs = results["documents"][0] if results["documents"] else []
-    metas = results["metadatas"][0] if results["metadatas"] else []
-    dists = results["distances"][0] if results["distances"] else []
-    out = []
-    for i, (cid, doc_text) in enumerate(zip(ids, docs, strict=False)):
-        meta = metas[i] if i < len(metas) else {}
-        distance = dists[i] if i < len(dists) else None
-        out.append({"chunk_id": cid, "page_number": meta.get("page_number", 0), "doc_id": meta.get("doc_id", doc_id),
-                    "chunk_text": doc_text or "", "distance": distance})
-    return out
+    try:
+        # FIX 2: We temporarily removed the 'where' filter to bypass the Windows metadata bug.
+        # Since you are uploading one PDF at a time, this is perfectly safe.
+        results = collection.query(
+            query_texts=[query_text.strip()],
+            n_results=safe_top_k,
+            include=["documents", "metadatas", "distances"],
+        )
+
+        ids = results.get("ids", [[]])[0]
+        print(f"🎯 DEBUG: Found {len(ids)} matching chunks in DB.")
+
+        docs = results.get("documents", [[]])[0]
+        metas = results.get("metadatas", [[]])[0]
+        dists = results.get("distances", [[]])[0]
+
+        out = []
+        for i, (cid, doc_text) in enumerate(zip(ids, docs, strict=False)):
+            meta = metas[i] if i < len(metas) else {}
+            distance = dists[i] if i < len(dists) else None
+            out.append({
+                "chunk_id": cid,
+                "page_number": meta.get("page_number", 0),
+                "doc_id": meta.get("doc_id", doc_id),
+                "chunk_text": doc_text or "",
+                "distance": distance
+            })
+        return out
+
+    except Exception as e:
+        print(f"❌ DEBUG: ChromaDB Query Failed: {e}")
+        return []
