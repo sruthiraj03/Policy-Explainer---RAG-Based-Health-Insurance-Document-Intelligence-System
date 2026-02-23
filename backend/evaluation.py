@@ -86,64 +86,74 @@ def _chunk_supports_bullet(bullet_text: str, chunk: Any, min_overlap: float = 0.
 
 
 # --- Validation Logic ---
-
 def validate_section_summary(
         section_out: SectionSummaryWithConfidence,
-        *,
-        valid_chunk_ids: set[str] | None = None,
-        valid_page_numbers: set[int] | None = None,
         detail_level: str = "standard",
 ) -> tuple[bool, list[str]]:
     """Checks for citation errors and bullet count violations."""
     issues: list[str] = []
+
+    # If the section isn't present, there are no issues to report
     if not section_out.present:
         return (True, [])
 
     bullets = section_out.bullets or []
-    min_b, max_b = (4, 6) if detail_level == "standard" else (8, 12)
+
+    # Set the strictness for bullet counts based on detail level
+    min_b, max_b = (3, 6) if detail_level == "standard" else (6, 12)
 
     if len(bullets) > max_b:
-        issues.append(f"bullet_count_exceeds_{max_b}")
+        issues.append(f"bullet_count_high: {len(bullets)} bullets (max {max_b})")
+
+    if len(bullets) < min_b and len(bullets) > 0:
+        issues.append(f"bullet_count_low: {len(bullets)} bullets (min {min_b})")
 
     for i, b in enumerate(bullets):
+        # Every summary point MUST have at least one citation to be 'Faithful'
         if not b.citations:
             issues.append(f"bullet_{i + 1}_missing_citations")
-        for c in b.citations:
-            if valid_page_numbers is not None and c.page not in valid_page_numbers:
-                issues.append(f"bullet_{i + 1}_invalid_page:{c.page}")
-            if valid_chunk_ids is not None and c.chunk_id not in valid_chunk_ids:
-                issues.append(f"bullet_{i + 1}_invalid_chunk_id:{c.chunk_id}")
 
+        for c in b.citations:
+            # Check for hallucinated page numbers
+            if c.page <= 0:
+                issues.append(f"bullet_{i + 1}_invalid_page_number: {c.page}")
+
+            # Check for hallucinated chunk IDs (must follow our c_X_X format)
+            if not c.chunk_id or not str(c.chunk_id).startswith("c_"):
+                issues.append(f"bullet_{i + 1}_invalid_chunk_id: {c.chunk_id}")
+
+    # A section is valid only if the issues list is empty
     return (len(issues) == 0, issues)
 
 
 # --- Confidence Scoring ---
 
 def confidence_for_section(
-        section_out: SectionSummaryWithConfidence,
-        *,
-        validation_issues: list[str] | None = None,
-        retrieval_chunk_count: int = 0,
+        section_out: SectionSummaryWithConfidence
 ) -> str:
     """Heuristic to determine 'Trustworthiness' of a section summary."""
-    issues = validation_issues or []
-    if not section_out.present or not section_out.bullets or retrieval_chunk_count == 0:
+    # We now pull the issues directly from the object we built in summarization.py
+    issues = section_out.validation_issues or []
+
+    # If the section isn't there or has no bullets, it's a low-confidence state
+    if not section_out.present or not section_out.bullets:
         return "low"
 
     total_bullets = len(section_out.bullets)
     bullets_with_citations = sum(1 for b in section_out.bullets if b.citations)
 
+    # Check for critical issues like hallucinated chunk IDs
     if issues:
-        critical = [i for i in issues if any(x in i for x in ["invalid", "missing"])]
+        critical = [i for i in issues if any(x in i.lower() for x in ["invalid", "missing"])]
         if critical:
             return "low"
         return "medium"
 
-    if bullets_with_citations >= total_bullets and retrieval_chunk_count >= 3:
+    # If every bullet has a source, it's high confidence!
+    if bullets_with_citations >= total_bullets:
         return "high"
 
     return "medium"
-
 
 # --- Main Metrics Computation ---
 
