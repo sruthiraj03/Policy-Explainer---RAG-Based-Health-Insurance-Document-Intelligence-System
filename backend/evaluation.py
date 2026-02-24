@@ -76,7 +76,7 @@ def _chunk_supports_bullet(bullet_text: str, chunk: Any, min_overlap: float = 0.
     if len(bullet_tokens & chunk_tokens) / len(bullet_tokens) >= min_overlap:
         return True
 
-    # Check 2: Hard numeric fact checking (crucial for MSBA accuracy)
+    # Check 2: Hard numeric fact checking
     bullet_nums = _extract_numbers(bullet_text)
     chunk_nums = _extract_numbers(chunk_text)
     if bullet_nums and bullet_nums <= chunk_nums:
