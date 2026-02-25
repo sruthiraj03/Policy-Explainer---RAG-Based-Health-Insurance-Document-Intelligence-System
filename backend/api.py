@@ -31,7 +31,14 @@ async def ingest(file: UploadFile) -> dict:
 
         doc_id = run_ingest(content)
         return {"doc_id": doc_id, "filename": file.filename}
+
+    except ValueError as ve:
+        # This catches your "Validation Failed" and keyword-count errors
+        # We return a 400 so the frontend knows the document was rejected, not that the server broke
+        raise HTTPException(status_code=400, detail=str(ve))
+
     except Exception as e:
+        # This remains for actual system crashes (e.g., database connection issues)
         raise HTTPException(status_code=500, detail=f"Ingest failed: {e}")
 
 

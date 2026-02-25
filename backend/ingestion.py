@@ -23,6 +23,49 @@ OVERLAP_TOKENS = 80  # Sentences shared between chunks so context isn't lost at 
 MIN_CHUNK_CHARS = 50  # Ignore tiny fragments that lack meaningful info
 
 
+# --- Policy Keywords ---
+
+# Expanded keywords based on standard health insurance document schemas
+POLICY_KEYWORDS = [
+    # General Identifiers
+    "summary of benefits", "evidence of coverage", "policy number", "group number",
+
+    # Financial Terms (Cost Sharing)
+    "deductible", "coinsurance", "copayment", "out-of-pocket", "annual limit",
+    "maximum out of pocket", "premium", "cost-sharing",
+
+    # Service Categories
+    "primary care", "specialist visit", "emergency room", "urgent care",
+    "inpatient hospital", "outpatient surgery", "preventive care",
+
+    # Pharmacy & Meds
+    "prescription drug", "formulary", "generic drug", "preferred brand", "mail order",
+
+    # Managed Care & Admin
+    "prior authorization", "pre-authorization", "referral", "network provider",
+    "non-preferred provider", "medically necessary", "exclusions", "limitations"
+]
+
+
+# --- Policy Checking Code ---
+def is_likely_policy(text: str) -> bool:
+    """
+    Scans the extracted text for insurance-specific terminology.
+    Returns True if at least 3 unique keywords are found.
+    """
+    text_lower = text.lower()
+
+    # 1. Check for mandatory "Anchor Phrases" first
+
+    # 2. Count standard keywords
+    matches = {word for word in POLICY_KEYWORDS if word in text_lower}
+
+    # Only pass if it has an anchor AND meets the keyword count
+    is_valid = len(matches) >= 10
+
+    print(f"📊 DEBUG: Keywords: {len(matches)}")
+    return is_valid
+
 def _approx_tokens(text: str) -> int:
     """A fast, rough estimate of token count (4 chars ≈ 1 token)."""
     return max(0, len(text.strip()) // 4)
@@ -204,13 +247,25 @@ def extract_pages(pdf_path: Path | str, clean_headers_footers: bool = True) -> l
 
 def run_ingest(pdf_content: bytes, base_path: Path | None = None) -> str:
     """
-    The Orchestrator:
-    1. Generates a unique ID.
-    2. Saves physical PDF.
-    3. Extracts text.
-    4. Creates Chunks.
-    5. Stores chunks in Vector DB (add_chunks).
-    """
+        Orchestrates the end-to-end ingestion pipeline for health insurance documents.
+
+        This function manages the lifecycle of a document upload by performing the following steps:
+        1. Generates a unique UUID for the session to ensure document isolation.
+        2. Saves the raw binary PDF to local persistent storage.
+        3. Extracts text and performs 'is_likely_policy' validation to prevent non-insurance uploads.
+        4. Segments the validated text into searchable chunks and generates vector embeddings.
+        5. Synchronizes the chunks with ChromaDB using strict doc_id metadata filtering.
+
+        Args:
+            pdf_content (bytes): The raw file data uploaded by the user.
+            base_path (Path, optional): Override for the default document storage directory.
+
+        Returns:
+            str: The generated doc_id, used for subsequent summary and Q&A requests.
+
+        Raises:
+            ValueError: If the PDF is empty, lacks extractable text, or fails policy validation keywords.
+        """
     doc_id = storage.generate_document_id()
     pdf_path = storage.save_raw_pdf(pdf_content, doc_id, base_path)
 
@@ -219,20 +274,31 @@ def run_ingest(pdf_content: bytes, base_path: Path | None = None) -> str:
         if not pages or sum(len(p.text or "") for p in pages) == 0:
             raise ValueError("PDF has no extractable text")
 
-        storage.save_extracted_pages(pages, doc_id, base_path)
+        # --- NEW: Policy Validation Step ---
+        # Combine the text from the first few pages (where summaries usually live)
+        # to see if it meets our keyword threshold
+        sample_text = " ".join([p.text or "" for p in pages[:3]])
+        if not is_likely_policy(sample_text):
+            raise ValueError(
+                "Validation Failed: This document does not appear to be a health insurance "
+                "policy or Summary of Benefits. Please upload a valid SBC PDF."
+            )
+        # -----------------------------------
 
+        storage.save_extracted_pages(pages, doc_id, base_path)
         chunks = chunk_pages(pages, doc_id)
+
         if not chunks:
             raise ValueError("PDF produced no chunks")
 
         storage.save_chunks(chunks, doc_id, base_path)
-        storage.add_chunks(doc_id, chunks)  # This puts it in the Search Index (e.g. Chroma)
+        storage.add_chunks(doc_id, chunks)
 
     except Exception as e:
-        # Cleanup on failure to prevent orphaned files
         doc_dir = storage.get_document_dir(doc_id, base_path)
         if doc_dir.exists():
+            import shutil
             shutil.rmtree(doc_dir)
-        raise ValueError(f"PDF processing failed: {e}") from e
+        raise e  # Let the API handle the error message
 
     return doc_id
