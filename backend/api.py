@@ -92,6 +92,14 @@ async def ask_endpoint(doc_id: str, body: QABody) -> dict:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router_qa.get("/{doc_id}/faqs")
+async def get_faqs(doc_id: str) -> dict:
+    """Generates and returns dynamic FAQs for the policy."""
+    try:
+        from backend.qa import generate_document_faqs
+        return generate_document_faqs(doc_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Evaluate: Analytics & Metrics ---
 router_evaluate = APIRouter()
