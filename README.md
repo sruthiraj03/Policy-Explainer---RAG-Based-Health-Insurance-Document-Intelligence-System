@@ -348,7 +348,3 @@ GET    /chunks/{doc_id}
 - Add production deployment config  
 
 ---
-
-## License
-
-MIT License
