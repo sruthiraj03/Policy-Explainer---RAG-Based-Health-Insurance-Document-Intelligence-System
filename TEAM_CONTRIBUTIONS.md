@@ -1,71 +1,76 @@
 # Team Contributions
 
-This project was developed collaboratively. Responsibilities were divided across architecture design, backend development, UI implementation, evaluation, and presentation.
+PolicyExplainer was developed collaboratively, with clearly defined ownership across architecture, backend engineering, user experience, evaluation design, and presentation.
 
 ---
 
 ## Tyler Camelot  
-**Project Manager and Lead Backend Engineer**
+**Project Lead and Backend Architect**
 
-- Designed overall system architecture (RAG pipeline, ingestion, retrieval, validation)
-- Implemented FastAPI backend services
-- Built deterministic chunking and retrieval logic
-- Designed citation validation and confidence scoring
-- Developed evaluation framework (Faithfulness, Completeness, Simplicity)
-- Integrated Chroma vector database
-- Structured JSON generation contracts for LLM outputs
-- Managed technical direction and milestone planning
-- Coordinated integration between frontend and backend
+- Designed the end-to-end RAG system architecture  
+- Built and structured the FastAPI backend  
+- Implemented deterministic ingestion and chunking pipeline  
+- Designed section-aware multi-query retrieval logic  
+- Developed citation validation and confidence scoring framework  
+- Architected and implemented evaluation metrics:
+  - Faithfulness  
+  - Completeness  
+  - Simplicity  
+- Integrated Chroma vector database for persistent retrieval  
+- Enforced structured JSON generation contracts  
+- Managed project milestones and technical direction  
+- Coordinated backend–frontend integration  
+
+Tyler led the system design and implemented the full backend architecture, evaluation framework, and guardrail mechanisms.
 
 ---
 
 ## Jaya Sruthi Raj Perikala  
-**UI Designer and Communications Lead**
+**Frontend Lead and UX Designer**
 
-- Designed and implemented Streamlit frontend interface
-- Structured dashboard layout and user flow
-- Implemented navigation (Summary, FAQs, New Policy, Export)
-- Developed user interaction flows for Q&A and summaries
-- Led documentation drafting and user communication clarity
-- Coordinated messaging and presentation framing
+- Designed and implemented the Streamlit user interface  
+- Built dashboard navigation (Summary, FAQs, New Policy, Export)  
+- Implemented Policy Assistant chat interface  
+- Structured summary display and citation rendering  
+- Contributed to user workflow clarity and documentation  
 
 ---
 
 ## Carson Pimental  
-**Presentation Lead**
+**Presentation and Communication Lead**
 
-- Structured final project presentation narrative
-- Developed visual slides explaining architecture and evaluation metrics
-- Synthesized technical components into stakeholder-ready explanations
-- Coordinated demo walkthrough and live demonstration flow
+- Structured final system presentation  
+- Developed architectural explanation materials  
+- Synthesized technical components into stakeholder-ready narrative  
+- Coordinated demo walkthrough and live demonstration  
 
 ---
 
 ## Kevin Sohn  
-**Testing and Validation Support**
+**Testing and System Validation**
 
-- Assisted with manual testing across ingestion and Q&A flows
-- Reviewed edge cases in document parsing
-- Helped validate citation formatting and output consistency
-- Provided feedback on evaluation metric clarity and interpretation
+- Conducted manual testing across ingestion and Q&A workflows  
+- Validated citation formatting and edge cases  
+- Assisted in reviewing summary consistency and evaluation outputs  
 
 ---
 
 ## Sherry Hsu  
 **Research and Documentation Support**
 
-- Assisted with policy structure research and section taxonomy alignment
-- Reviewed completeness checklist definitions
-- Helped document system behavior and user-facing explanations
-- Contributed to refinement of FAQ structure and clarity
+- Assisted with policy section taxonomy alignment  
+- Reviewed completeness criteria definitions  
+- Contributed to documentation clarity and FAQ refinement  
 
 ---
 
-# Collaboration Notes
+# Collaboration Structure
 
-- Backend architecture and evaluation framework were centrally designed and implemented by Tyler Camelot.
-- Frontend and user experience were implemented in coordination with the backend interface.
-- All team members contributed to testing, review, and presentation preparation.
+Backend architecture, retrieval logic, evaluation design, and system validation frameworks were centrally designed and implemented by Tyler Camelot.
+
+Frontend implementation and user experience development were coordinated to integrate seamlessly with backend services.
+
+All team members contributed to testing, review, and presentation preparation.
 
 ---
 
