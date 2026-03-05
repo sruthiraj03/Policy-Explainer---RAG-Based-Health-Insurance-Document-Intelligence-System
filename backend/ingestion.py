@@ -49,10 +49,11 @@ MIN_CHUNK_CHARS = 50  # Ignore tiny fragments that lack meaningful info
 POLICY_KEYWORDS = [
     # General Identifiers
     "summary of benefits", "evidence of coverage", "policy number", "group number",
+    "health care",
 
     # Financial Terms (Cost Sharing)
     "deductible", "coinsurance", "copayment", "out-of-pocket", "annual limit",
-    "maximum out of pocket", "premium", "cost-sharing",
+    "maximum out of pocket", "premium", "cost-sharing", "insurance", "medical",
 
     # Service Categories
     "primary care", "specialist visit", "emergency room", "urgent care",
@@ -63,7 +64,12 @@ POLICY_KEYWORDS = [
 
     # Managed Care & Admin
     "prior authorization", "pre-authorization", "referral", "network provider",
-    "non-preferred provider", "medically necessary", "exclusions", "limitations"
+    "non-preferred provider", "medically necessary", "exclusions", "limitations",
+
+    #Plan Types
+    "PPO", "HMO", "HSA", "EPO", "POS", "HDHP"
+
+    #
 ]
 
 
