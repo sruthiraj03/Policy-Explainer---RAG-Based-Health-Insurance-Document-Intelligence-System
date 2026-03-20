@@ -4,16 +4,16 @@ This document explains how to install, configure, and run PolicyExplainer locall
 
 PolicyExplainer consists of:
 
-- A FastAPI backend (document processing + RAG pipeline)
-- A Streamlit frontend (UI layer)
-- A persistent Chroma vector database
-- Local artifact storage per document
+- FastAPI backend (document ingestion, retrieval, summarization, Q&A, evaluation)
+- Streamlit frontend (UI and interaction layer)
+- ChromaDB vector database (embedding storage and retrieval)
+- Local artifact storage per document (for reproducibility)
 
 ---
 
 # System Requirements
 
-- Python 3.10+
+- Python 3.10 or 3.11 (recommended for compatibility)
 - pip
 - Virtual environment support
 - OpenAI API key
@@ -44,13 +44,13 @@ python -m venv .venv
 
 Activate:
 
-Windows:
+**Windows**
 
 ```bash
 .venv\Scripts\activate
 ```
 
-Mac/Linux:
+**Mac/Linux**
 
 ```bash
 source .venv/bin/activate
@@ -64,7 +64,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If you are adding the Simplicity metric using readability scoring, you may later include:
+Optional (if using readability-based simplicity scoring):
 
 ```bash
 pip install textstat
@@ -76,19 +76,19 @@ pip install textstat
 
 Copy the template:
 
-Windows:
+**Windows**
 
 ```bash
 copy .env.example .env
 ```
 
-Mac/Linux:
+**Mac/Linux**
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and set:
+Edit `.env`:
 
 ```text
 OPENAI_API_KEY=your_api_key_here
@@ -100,32 +100,32 @@ Optional configuration:
 LLM_MODEL=gpt-4o-mini
 EMBEDDING_MODEL=text-embedding-3-small
 VECTOR_DB_PATH=./chroma_data
-API_BASE_URL=http://localhost:8000
+API_BASE_URL=http://127.0.0.1:8000
 ```
 
 Notes:
 
-- `OPENAI_API_KEY` is required.
-- Do not hardcode secrets.
-- `.env` should never be committed to version control.
+* `OPENAI_API_KEY` is required
+* Do not hardcode secrets in code
+* `.env` should never be committed
 
 ---
 
 # 5. Run Backend (FastAPI)
 
-From the project root:
+From project root:
 
 ```bash
 uvicorn backend.main:app --reload
 ```
 
-Backend will run at:
+Backend runs at:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-API documentation (Swagger UI):
+Swagger UI:
 
 ```text
 http://127.0.0.1:8000/docs
@@ -135,13 +135,13 @@ http://127.0.0.1:8000/docs
 
 # 6. Run Frontend (Streamlit)
 
-In a separate terminal (with virtual environment activated):
+In a new terminal (activate virtual environment):
 
 ```bash
 streamlit run frontend/app.py
 ```
 
-Frontend will run at:
+Frontend runs at:
 
 ```text
 http://localhost:8501
@@ -149,30 +149,33 @@ http://localhost:8501
 
 ---
 
-# 7. Verify Installation
+# 7. End-to-End Verification
 
-1. Upload a sample insurance policy PDF
+1. Upload a health insurance policy PDF
 2. Confirm a `doc_id` is generated
-3. Generate a section summary
-4. Ask a grounded question
-5. Run evaluation via:
+3. Generate a structured summary
+4. Ask a question using Policy Assistant
+5. Run evaluation
+
+Evaluation endpoint:
 
 ```text
 POST /evaluate/{doc_id}
 ```
 
-Successful evaluation returns:
+Expected outputs:
 
-- Faithfulness score
-- Completeness score
-- Simplicity score
-- Validation results
+* Faithfulness score
+* Completeness score
+* Simplicity score
+* Validation results
+* Confidence signals
 
 ---
 
 # Project Storage Layout
 
-After ingesting a document, artifacts are saved to:
+After ingestion, artifacts are stored per document:
 
 ```text
 data/documents/{doc_id}/
@@ -183,19 +186,42 @@ data/documents/{doc_id}/
 └─ evaluation_report.json
 ```
 
-Vector embeddings are stored in:
+Vector storage:
 
 ```text
 ./chroma_data
 ```
 
-These artifacts enable reproducibility and evaluation.
+These enable reproducibility and traceability.
 
 ---
 
-# Running Evaluation
+# Backend Execution Flow (What Happens Internally)
 
-You may evaluate a processed document using:
+**When you upload a document:**
+
+1. PDF is parsed and cleaned (PyMuPDF)
+2. Text is split into deterministic chunks
+3. Chunk artifacts are saved locally
+4. Embeddings are generated and stored in ChromaDB
+
+**When generating a summary:**
+
+1. Section-aware multi-query retrieval runs
+2. Relevant chunks are deduplicated and ordered
+3. LLM generates structured JSON output
+4. Citation validation filters unsupported content
+5. Confidence score is computed
+
+**When running evaluation:**
+
+1. Summary is re-checked against source chunks
+2. Faithfulness, completeness, simplicity are computed
+3. Results are stored as `evaluation_report.json`
+
+---
+
+# Running Evaluation via CLI
 
 ```bash
 curl -X POST http://127.0.0.1:8000/evaluate/{doc_id}
@@ -203,32 +229,29 @@ curl -X POST http://127.0.0.1:8000/evaluate/{doc_id}
 
 Evaluation includes:
 
-- Faithfulness scoring
-- Completeness scoring
-- Simplicity scoring
-- Structural validation checks
-
-Evaluation is deterministic.
+* Faithfulness scoring
+* Completeness scoring
+* Simplicity scoring
+* Citation validation checks
 
 ---
 
 # Optional: Enable Simplicity Metric
 
-If implementing readability scoring (recommended):
-
-Add dependency:
+Install dependency:
 
 ```bash
 pip install textstat
 ```
 
-The Simplicity Score may use:
+Simplicity may include:
 
-- Flesch Reading Ease delta
-- Average sentence length reduction
-- Jargon frequency reduction
+* Flesch Reading Ease improvement
+* Sentence length reduction
+* Jargon reduction
+* Structural simplification
 
-Ensure simplicity logic remains deterministic.
+Keep evaluation deterministic.
 
 ---
 
@@ -237,28 +260,35 @@ Ensure simplicity logic remains deterministic.
 ## 1. OPENAI_API_KEY not set
 
 Error:
+
 ```text
 Missing API key
 ```
 
-Solution:
-- Confirm `.env` exists
-- Ensure key is valid
-- Restart backend after editing `.env`
+Fix:
 
----
+* Ensure `.env` exists
+* Add valid API key
+* Restart backend
 
 ## 2. PDF has no extractable text
 
 Cause:
-- Scanned PDF (image-only)
 
-Solution:
-- Run OCR before ingestion
+* Scanned image-based PDF
 
----
+Fix:
 
-## 3. Port Already in Use
+* Run OCR before uploading
+
+## 3. ChromaDB errors or missing index
+
+Fix:
+
+* Delete `./chroma_data` and re-run ingestion
+* Ensure embedding model is consistent
+
+## 4. Port already in use
 
 Change backend port:
 
@@ -272,18 +302,32 @@ Change frontend port:
 streamlit run frontend/app.py --server.port 8502
 ```
 
+## 5. Inconsistent results across runs
+
+Possible causes:
+
+* Different model versions
+* Changed chunking logic
+* Cleared vector database
+
+Fix:
+
+* Keep environment variables consistent
+* Avoid modifying ingestion logic mid-run
+
 ---
 
 # Production Considerations
 
 For deployment:
 
-- Restrict CORS origins
-- Add authentication
-- Remove debug logging
-- Use fixed model versions
-- Containerize with Docker
-- Add CI pipeline
+* Restrict CORS origins
+* Add authentication to APIs
+* Remove debug logs
+* Use fixed model versions
+* Containerize with Docker
+* Add CI/CD pipeline
+* Monitor API usage and latency
 
 ---
 
@@ -291,13 +335,13 @@ For deployment:
 
 PolicyExplainer runs locally using:
 
-- FastAPI backend
-- Streamlit frontend
-- Chroma vector persistence
-- Deterministic evaluation framework
+* FastAPI backend for document intelligence
+* Streamlit frontend for interaction
+* ChromaDB for semantic retrieval
+* Local artifact storage for reproducibility
 
-All components are modular and reproducible.
+The system is modular, deterministic where required, and designed for reliable, grounded outputs.
 
 ---
 
-End of Setup Guide.
+*End of Setup Guide.*
