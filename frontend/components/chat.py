@@ -154,7 +154,6 @@ def render_chat_panel():
         # --- Error Handling ---
         # These cases provide user-friendly messages while preserving app stability.
         except requests.exceptions.ConnectionError:
-        except requests.exceptions.ConnectionError:
             st.session_state.chat_history.append({
                 "role": "assistant",
                 "content": "🚨 **Connection Error:** I couldn't reach the backend server. Please ensure the FastAPI server is running."
