@@ -1,24 +1,30 @@
 # PolicyExplainer Architecture
 
-This document describes the end-to-end architecture of PolicyExplainer, a modular Retrieval-Augmented Generation (RAG) system for insurance policy intelligence with strict grounding, citation enforcement, and evaluation-backed outputs.
+This document describes the end-to-end architecture of PolicyExplainer, a modular Retrieval-Augmented Generation (RAG) system for health insurance policy intelligence with strict grounding, citation enforcement, and evaluation-backed outputs.
 
-PolicyExplainer is designed to prioritize reliability and transparency over open-ended generation. All outputs are restricted to the uploaded document. Unsupported claims are filtered out through deterministic validation.
+PolicyExplainer is designed to prioritize reliability, traceability, and transparency over open-ended generation. All outputs are restricted to the uploaded document, and unsupported claims are filtered through deterministic validation.
 
 ---
 
 # System Overview
 
-PolicyExplainer is composed of two layers:
+PolicyExplainer is composed of two main layers:
 
-- Frontend (Streamlit): user interface, workflow orchestration, and document interactions
-- Backend (FastAPI): ingestion, retrieval, LLM orchestration, citation validation, and evaluation
+- Frontend (Streamlit): user interface, workflow orchestration, and result presentation
+- Backend (FastAPI): ingestion, retrieval, summarization, Q&A, citation validation, confidence scoring, and evaluation
+
+Supporting components:
+
+- ChromaDB: vector storage for chunk embeddings and retrieval
+- Local artifact storage: persistent storage for uploaded files and generated processing artifacts
+- OpenAI models: embeddings and structured generation
 
 High-level responsibilities:
 
-- Streamlit handles user actions (upload, summary, FAQs, Q&A, export)
-- FastAPI performs all document processing and RAG operations
-- Chroma stores embeddings for retrieval
-- Local storage persists artifacts for reproducibility and auditing
+- Streamlit handles user actions such as upload, summary generation, evaluation display, Q&A, and export-oriented interactions
+- FastAPI performs document processing and all RAG operations
+- ChromaDB stores embeddings for semantic retrieval
+- Local storage persists intermediate and final artifacts for reproducibility and auditing
 
 ---
 
@@ -30,11 +36,11 @@ flowchart LR
   FE -->|Upload PDF| BE[FastAPI Backend]
 
   subgraph Ingestion[Ingestion - Deterministic]
-    BE --> P[PDF Parse and Clean - PyMuPDF]
-    P --> C[Chunking with Overlap]
+    BE --> P[PDF Parsing and Cleaning - PyMuPDF]
+    P --> C[Token-Based Chunking with Overlap]
     C --> FS[(Local Artifact Store)]
-    C --> E[Embeddings]
-    E --> VDB[(Chroma Vector DB)]
+    C --> EMB[Embedding Generation]
+    EMB --> VDB[(ChromaDB)]
   end
 
   subgraph Retrieval[Retrieval - Deterministic]
@@ -43,16 +49,16 @@ flowchart LR
   end
 
   subgraph Generation[Generation - Probabilistic]
-    D --> LLM[LLM Structured JSON Output]
+    D --> LLM[LLM Structured JSON Generation]
   end
 
   subgraph Validation[Validation and Scoring - Deterministic]
-    LLM --> CV[Citation Validator]
-    CV --> CS[Confidence Scoring]
+    LLM --> CV[Citation Validation]
+    CV --> CF[Confidence Scoring]
     CV --> EV[Evaluation Metrics]
   end
 
-  CS --> FE
+  CF --> FE
   EV --> FE
   FE -->|Render Results| U
 ```
@@ -65,41 +71,43 @@ flowchart LR
 
 Primary responsibilities:
 
-- Policy upload experience
-- Navigation: Summary, New Policy, Save Insurance Summary, FAQs
-- Policy Assistant chat interface
-- Evidence display (citations and page references)
-- Exporting summaries to PDF
-- Session state management per document
+* Policy upload interface
+* Summary and document insight views
+* Policy Assistant chat interface
+* Citation and page reference display
+* Evaluation score display
+* Session state management for the active document
+* Triggering backend endpoints for ingestion, summarization, evaluation, and Q&A
 
 Design principle:
-Keep frontend focused on UX and orchestration while centralizing all document logic in the backend.
+
+Keep the frontend focused on user experience and workflow orchestration while centralizing all document intelligence logic in the backend.
 
 ---
 
 ## Backend (FastAPI)
 
-The backend owns the system’s core logic. It is responsible for:
+The backend owns the core system logic. It is responsible for:
 
-- Ingestion: parse and clean PDF text, chunk deterministically, persist artifacts
-- Retrieval: vector search with section-aware queries, deduplicate and order chunks
-- Summarization: structured section summaries with citations
-- Q&A: grounded answers with citation enforcement and confidence scoring
-- FAQs: policy-specific question generation grounded in the document
-- Evaluation: scoring outputs on faithfulness, completeness, and simplicity
+* Ingestion: parse PDF text, clean content, chunk deterministically, and persist artifacts
+* Retrieval: semantic search with section-aware multi-query logic, deduplication, and document-order sorting
+* Summarization: structured section-level policy summaries with citations
+* Q&A: grounded answers backed by retrieved evidence
+* Evaluation: scoring outputs on faithfulness, completeness, and simplicity
+* Validation: filtering unsupported claims and invalid citations
+* Confidence scoring: deriving reliability signals from retrieval and validation outputs
 
 Core backend modules:
 
-- ingestion.py
-- retrieval.py
-- summarization.py
-- qa.py
-- evaluation.py
-- storage.py
-- schemas.py
-- utils.py
-- api.py
-- main.py
+* `api.py`
+* `ingestion.py`
+* `retrieval.py`
+* `summarization.py`
+* `qa.py`
+* `evaluation.py`
+* `storage.py`
+* `schemas.py`
+* `utils.py`
 
 ---
 
@@ -107,29 +115,30 @@ Core backend modules:
 
 The ingestion stage is deterministic and reproducible.
 
-1. PDF Parsing
-   - Extract text per page using PyMuPDF
-   - Clean headers and formatting artifacts
-   - Reject empty or unusable documents
+## 1. PDF Parsing
 
-2. Chunking
-   - Token-based segmentation (approximately 500–800 tokens)
-   - Sliding overlap (~80 tokens)
-   - Deterministic chunk IDs:
+* Extract text page by page using PyMuPDF
+* Clean headers, footers, and formatting noise
+* Validate whether the uploaded document resembles a policy document using keyword heuristics
+* Reject empty or unusable files
 
-     ```
-     c_{page_number}_{chunk_index}
-     ```
+## 2. Chunking
 
-3. Persistence
-   - Save raw.pdf
-   - Save pages.json
-   - Save chunks.jsonl
-   - Embed chunks and store in Chroma
+* Split text into token-based chunks
+* Use approximately 500 to 800 tokens per chunk
+* Apply sliding overlap of around 80 tokens
+* Preserve page association for citation grounding
+* Generate deterministic chunk IDs:
 
-Artifact layout:
-
+```text
+c_{page_number}_{chunk_index}
 ```
+
+## 3. Persistence
+
+Artifacts are stored per document for reproducibility:
+
+```text
 data/documents/{doc_id}/
 ├─ raw.pdf
 ├─ pages.json
@@ -138,60 +147,125 @@ data/documents/{doc_id}/
 └─ evaluation_report.json
 ```
 
-Vector database:
+Vector database storage:
 
-```
+```text
 ./chroma_data
 ```
+
+This design allows the system to trace outputs back to specific pages and chunks.
 
 ---
 
 # Retrieval Layer
 
-Retrieval uses section-aware multi-query logic instead of a single embedding query.
+Retrieval uses section-aware multi-query logic instead of relying on a single embedding query.
+
+For each canonical policy section, the system issues multiple semantic sub-queries to improve recall.
 
 Example for Cost Summary:
 
-- deductible
-- copay
-- coinsurance
-- out_of_pocket_maximum
-- premium
+* deductible
+* copay
+* coinsurance
+* out-of-pocket maximum
+* premium
 
-Algorithm:
+Retrieval algorithm:
 
 1. Run vector search for each sub-query
-2. Merge results
-3. Deduplicate by chunk_id
-4. Sort by page_number and chunk_index
-5. Limit context window size
+2. Merge all retrieved candidates
+3. Deduplicate by `chunk_id`
+4. Retain the strongest match where needed
+5. Sort chunks by document order
+6. Limit the context window before passing to the LLM
 
 Benefits:
 
-- Higher recall
-- Reduced risk of missing sparse policy terms
-- Stable document-order context for LLM
-- Mitigates Lost-in-the-Middle effects
+* Higher recall for sparse or distributed policy information
+* Lower risk of missing relevant clauses
+* Stable ordering of context
+* Better citation grounding
+* Reduced lost-in-the-middle effects
 
 ---
 
 # Generation Layer
 
-Generation is the only probabilistic component.
+Generation is the only probabilistic component in the system.
 
-The model must return structured JSON, not free-form text.
+The model is required to return structured JSON rather than unconstrained free-form output.
 
-Tasks include:
+Generation tasks include:
 
-- Section summaries
-- FAQs
-- Grounded Q&A
+* Section summaries
+* Grounded document Q&A
 
-All generation tasks:
+Generation constraints:
 
-- Receive bounded retrieved context
-- Enforce schema output
-- Require citations per bullet or answer unit
+* Use only retrieved document context
+* Follow strict response schemas
+* Attach citations to each supported answer unit
+* Avoid unsupported claims
+* Produce fallback output when evidence is insufficient
+
+This design keeps generation bounded and easier to validate.
+
+---
+
+# Structured Summarization
+
+PolicyExplainer generates section-based summaries using a strict schema.
+
+Expected structure:
+
+```json
+{
+  "section_name": "...",
+  "present": true,
+  "bullets": [
+    {
+      "text": "...",
+      "citations": [
+        { "page": 1, "chunk_id": "c_1_0" }
+      ]
+    }
+  ]
+}
+```
+
+Post-generation processing:
+
+* Filter citations to only allowed retrieved chunk IDs
+* Drop bullets with invalid or missing support
+* Record validation issues
+* Compute confidence signals
+
+Unsupported content is not allowed in the final output.
+
+---
+
+# Grounded Question Answering
+
+Users can ask natural-language questions about the uploaded policy.
+
+Q&A pipeline:
+
+1. Embed the user question
+2. Retrieve top-k relevant chunks
+3. Sort retrieved chunks in document order
+4. Generate a structured answer
+5. Validate citations
+6. Remove unsupported claims
+7. Compute confidence score
+
+If the retrieved evidence is insufficient, the system returns:
+
+```text
+Not found in this document.
+```
+
+No external knowledge is used.
 
 ---
 
@@ -201,153 +275,206 @@ Citation validation is deterministic and mandatory.
 
 Validation rules:
 
-- Only allow chunk_ids from retrieved context
-- Drop unsupported bullets automatically
-- Normalize page references
-- Record validation warnings
+* Only allow citations from retrieved chunk IDs
+* Verify chunk references are valid
+* Normalize citation formatting
+* Remove unsupported bullets or answer units
+* Record validation warnings for downstream scoring
 
-If no supporting evidence exists:
-
-```
-Not found in this document.
-```
-
-No external knowledge is used.
+This layer acts as a guardrail between generation and presentation.
 
 ---
 
 # Confidence Scoring
 
-Confidence is derived from deterministic signals:
+Confidence is derived from deterministic signals, such as:
 
-- Citation density
-- Citation validity
-- Retrieval strength
-- Validation warnings
-- Coverage consistency
+* Citation validity
+* Citation density
+* Retrieval relevance strength
+* Validation warnings
+* Section coverage consistency
 
-Confidence reflects reliability relative to the document, not legal accuracy.
+Confidence reflects how well the output is supported by the uploaded document. It is not a legal certainty score.
 
 ---
 
 # Evaluation Framework
 
-Evaluation is deterministic and executed post-generation.
+Evaluation is deterministic and runs after summary generation.
 
-Three independent metrics are computed:
+The system measures output quality across three independent dimensions.
 
-## Faithfulness (0.0 – 1.0)
+## 1. Faithfulness (0.0 to 1.0)
 
-Measures grounding strength.
+Measures whether generated claims are supported by cited evidence.
 
-Logic:
-- Token overlap threshold
-- Numeric consistency checks
-- Citation validation
+Support logic may include:
 
-Higher score = stronger grounding.
+* Token overlap checks
+* Numeric consistency checks
+* Citation validation against retrieved chunks
+
+Higher score indicates stronger grounding.
 
 ---
 
-## Completeness (0.0 – 1.0)
+## 2. Completeness (0.0 to 1.0)
 
-Measures coverage across weighted policy sections.
+Measures how well the summary covers canonical policy sections.
 
 Example weights:
 
-- Cost Summary (35%)
-- Covered Services (30%)
-- Administrative Conditions (15%)
-- Exclusions and Limitations (10%)
-- Plan Snapshot (5%)
-- Claims and Appeals (5%)
+* Cost Summary (35%)
+* Covered Services (30%)
+* Administrative Conditions (15%)
+* Exclusions and Limitations (10%)
+* Plan Snapshot (5%)
+* Claims and Appeals (5%)
 
-Higher score = broader and more balanced coverage.
+Higher score indicates broader and more balanced coverage.
 
 ---
 
-## Simplicity (0.0 – 1.0)
+## 3. Simplicity (0.0 to 1.0)
 
-Measures readability improvement relative to the original policy.
+Measures whether the generated summary is easier to understand than the original policy text.
 
 Components:
 
-- Readability improvement (Flesch delta, sentence length reduction)
-- Jargon reduction (domain term frequency decrease)
-- Structural clarity (bullet formatting vs dense paragraphs)
+* Readability improvement
+* Jargon reduction
+* Structural clarity
 
-Example composition:
+Example formulation:
 
-```
+```text
 Simplicity Score =
 0.4 * readability_improvement
 + 0.4 * jargon_reduction
-+ 0.2 * structural_clarity
++ 0.2 * structural_simplification
 ```
 
-Higher score = clearer and more understandable summary.
+Higher score indicates clearer, simpler, and more user-friendly output.
 
 ---
 
 # Deterministic vs Probabilistic Layers
 
-Deterministic:
+## Deterministic
 
-- Chunking
-- Retrieval ordering
-- Deduplication
-- Citation validation
-- Confidence scoring
-- Faithfulness scoring
-- Completeness scoring
-- Simplicity scoring
+* PDF parsing and cleaning
+* Chunking
+* Retrieval ordering
+* Deduplication
+* Citation validation
+* Confidence scoring
+* Faithfulness scoring
+* Completeness scoring
+* Simplicity scoring
+* Artifact persistence
 
-Probabilistic:
+## Probabilistic
 
-- LLM generation
+* LLM-based summary generation
+* LLM-based grounded Q&A generation
 
 This separation reduces hallucination risk and increases auditability.
 
 ---
 
-# Reproducibility
+# Reproducibility and Traceability
 
 Reproducibility is achieved through:
 
-- Persisted raw documents
-- Stored chunk artifacts
-- Deterministic retrieval logic
-- Fixed model versions via environment configuration
-- Stored evaluation reports per document
+* Persisted raw uploaded documents
+* Stored page-level extraction artifacts
+* Deterministic chunk creation
+* Persistent chunk IDs
+* Stored vector index
+* Saved summary artifacts
+* Saved evaluation reports
 
-Re-running ingestion on the same PDF produces identical chunk structure.
+Re-running ingestion on the same file should produce the same chunk structure and artifact layout, assuming the same preprocessing configuration.
+
+---
+
+# Storage Architecture
+
+PolicyExplainer uses two complementary storage mechanisms.
+
+## 1. Local Artifact Storage
+
+Used for reproducibility and traceability:
+
+* Raw uploaded PDF
+* Parsed page text
+* Chunked text artifacts
+* Generated summary output
+* Evaluation reports
+
+## 2. Vector Storage (ChromaDB)
+
+Used for semantic retrieval:
+
+* Chunk embeddings
+* Metadata associated with each chunk
+* Retrieval-ready searchable index
+
+This separation keeps the system both auditable and retrieval-efficient.
+
+---
+
+# Technology Stack
+
+## Backend
+
+* Python
+* FastAPI
+* Pydantic
+* PyMuPDF
+* ChromaDB
+* OpenAI API
+
+## Frontend
+
+* Streamlit
+
+## Storage
+
+* Local JSON-based artifact persistence
+* Persistent vector database
 
 ---
 
 # Security and Deployment Considerations
 
-Recommended production hardening:
+Recommended production hardening includes:
 
-- Restrict CORS origins
-- Add authentication for API endpoints
-- Avoid logging sensitive content
-- Store secrets only in environment variables
-- Implement document retention policies
+* Restrict CORS origins
+* Add authentication and authorization to backend endpoints
+* Avoid logging sensitive policy content
+* Store secrets only in environment variables
+* Apply document retention and deletion policies
+* Validate uploaded file types and size limits
 
 ---
 
 # Summary
 
-PolicyExplainer is an end-to-end RAG system engineered for:
+PolicyExplainer is an end-to-end RAG architecture engineered for reliable insurance policy understanding.
 
-- Deterministic ingestion and retrieval
-- Structured generation
-- Strict citation enforcement
-- Multi-axis evaluation (Faithfulness, Completeness, Simplicity)
-- Artifact persistence for auditability
+It emphasizes:
+
+* Deterministic ingestion and retrieval
+* Structured and bounded generation
+* Strict citation enforcement
+* Confidence-aware outputs
+* Multi-axis evaluation using Faithfulness, Completeness, and Simplicity
+* Artifact persistence for reproducibility and traceability
 
 The architecture prioritizes grounded, measurable, and transparent outputs over open-ended generation.
 
 ---
 
-End of Architecture Document.
+*End of Architecture Document.*
