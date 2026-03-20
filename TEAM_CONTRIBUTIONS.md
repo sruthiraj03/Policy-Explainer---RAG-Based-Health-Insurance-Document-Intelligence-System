@@ -14,8 +14,7 @@ PolicyExplainer was developed collaboratively, with clearly defined ownership ac
 - Developed citation validation and confidence scoring framework  
 - Architected and implemented evaluation metrics:
   - Faithfulness  
-  - Completeness  
-  - Simplicity  
+  - Completeness
 - Integrated Chroma vector database for persistent retrieval  
 - Enforced structured JSON generation contracts  
 - Managed project milestones and technical direction  
