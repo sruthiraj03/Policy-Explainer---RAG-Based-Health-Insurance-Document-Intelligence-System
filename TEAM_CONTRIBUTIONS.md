@@ -47,8 +47,10 @@ Tyler led the system design and implemented the full backend architecture, evalu
 - Structured and developed the final system presentation  
 - Developed architectural explanation materials  
 - Synthesized technical components into stakeholder-ready narrative  
-- Coordinated demo walkthrough and live demonstration  
-
+- Implemented evaluation metrics:
+  - Faithfulness  
+  - Completeness
+- Coordinated demo walkthrough and live demonstration
 ---
 
 ## Kevin Sohn  
