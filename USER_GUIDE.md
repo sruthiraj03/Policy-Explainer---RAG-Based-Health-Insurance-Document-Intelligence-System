@@ -1,10 +1,10 @@
 # User Guide
 
-This guide explains how to use the deployed PolicyExplainer application.
+This guide explains how to use the PolicyExplainer application.
 
-PolicyExplainer helps users understand complex health insurance policy documents by generating structured summaries, grounded answers, FAQs, and evaluation-backed reliability metrics.
+PolicyExplainer helps you understand complex health insurance policy documents by generating structured summaries, grounded answers, FAQs, and evaluation-backed reliability metrics.
 
-No technical knowledge is required.
+No technical background is required.
 
 ---
 
@@ -13,32 +13,31 @@ No technical knowledge is required.
 PolicyExplainer allows you to:
 
 - Upload a health insurance policy PDF
-- Generate structured policy summaries
-- Ask grounded questions through a RAG-powered assistant
-- Automatically generate FAQs specific to your policy
-- Download a structured PDF summary
-- View confidence indicators for generated content
+- Generate structured, section-wise summaries
+- Ask grounded questions using a document-aware assistant
+- View policy-specific FAQs
+- Download a structured summary
+- See confidence indicators for outputs
 - Evaluate summary quality using measurable metrics
 
 All outputs are strictly grounded in your uploaded document.
 
-If information is not found in the document, the system will explicitly state:
+If information is not found, the system will respond:
 
-```
+```text
 Not found in this document.
 ```
 
-The system does not use external knowledge.
+No external knowledge is used.
 
 ---
 
-# First Screen: Upload Your Policy
+# Step 1: Upload Your Policy
 
-When you first open the application, you will see:
+When you open the application, you will see:
 
-- A header explaining the purpose of PolicyExplainer
-- A file upload section labeled:
-  "Select your insurance document"
+- A header describing PolicyExplainer
+- A file upload section
 - A "Browse files" button
 
 To begin:
@@ -47,130 +46,130 @@ To begin:
 2. Select your insurance policy PDF
 3. Wait for processing to complete
 
-Once ingestion finishes, the application transitions to the main summary dashboard.
+Once ingestion finishes, you will be redirected to the main dashboard.
 
 ---
 
 # Main Dashboard
 
-After uploading a policy, you will see:
+After uploading a policy, the dashboard includes:
 
-- Navigation buttons at the top:
+- Top navigation:
   - Summary
-  - New Policy
-  - Save Insurance Summary
   - FAQs
-- A Policy Highlights section
-- A Policy Assistant chat interface on the right
+  - Save Insurance Summary
+  - New Policy
+- Policy Highlights (left or center)
+- Policy Assistant chat interface (right side)
 
 ---
 
-# Policy Highlights (Summary View)
+# Summary (Policy Highlights)
 
-The Summary tab displays structured highlights of your policy.
+The Summary tab shows structured highlights of your policy.
 
-Sections may include:
+Typical sections include:
 
 - Plan Snapshot
 - Cost Summary
 - Covered Services
 - Administrative Conditions
-- Exclusions & Limitations
-- Claims & Appeals
+- Exclusions and Limitations
+- Claims and Appeals
 
 Each section:
 
 - Is collapsible
-- Displays structured bullet points
-- Includes page citations
-- Displays a Confidence level (e.g., HIGH)
+- Contains bullet-point summaries
+- Includes page-level citations
+- Displays a confidence level
 
 Example:
 
+```text
+Confidence: HIGH • Annual deductible is $1500 (p. 3)
 ```
-Confidence: HIGH
-• Bullet point summary (p. 3)
-```
 
-Confidence reflects citation validation strength and structural consistency.
+Confidence reflects how strongly the content is supported by the document.
 
 ---
 
-# Save Insurance Summary (Download PDF)
+# Policy Assistant (Ask Questions)
 
-You may download a structured summary of your policy.
+The Policy Assistant allows you to ask natural language questions about your policy.
 
-To download:
-
-1. Click "Save Insurance Summary"
-2. A formatted PDF summary will be generated
-3. Save the file locally
-
-The exported PDF includes:
-
-- Structured sections
-- Bullet-point summaries
-- Page references
-
-This is useful for sharing or record-keeping.
-
----
-
-# FAQs (Policy-Specific Frequently Asked Questions)
-
-The FAQs button generates policy-specific frequently asked questions based on your uploaded document.
-
-FAQs are:
-
-- Automatically generated from the policy content
-- Grounded in document text
-- Structured for clarity
-- Citation-backed
-
-This provides quick insight into commonly important coverage details.
-
----
-
-# Policy Assistant (RAG-Based Chat)
-
-On the right side of the dashboard is the Policy Assistant.
-
-You can ask natural language questions such as:
+Example questions:
 
 - What is my deductible?
 - Is emergency care covered?
 - Do I need prior authorization?
-- What is excluded?
+- What services are excluded?
 
-To ask a question:
+How to use:
 
-1. Type your question in the input field
-2. Click the arrow button to submit
+1. Enter your question in the input box
+2. Submit your query
 3. Review the response
 
-The assistant will:
+The system will:
 
-- Retrieve relevant document chunks
-- Generate a structured answer
+- Retrieve relevant document sections
+- Generate a grounded answer
 - Validate citations
 - Display a confidence indicator
 
-If the policy does not contain the requested information, the assistant responds:
+If no supporting information is found:
 
-```
+```text
 Not found in this document.
 ```
 
 ---
 
+# FAQs (Frequently Asked Questions)
+
+The FAQs tab generates policy-specific questions and answers.
+
+Features:
+
+- Automatically generated from your document
+- Focused on important coverage areas
+- Grounded in policy content
+- Structured for easy reading
+- Supported by citations
+
+Use FAQs to quickly understand key aspects of your policy.
+
+---
+
+# Save Insurance Summary (Download)
+
+You can download a structured summary of your policy.
+
+Steps:
+
+1. Click "Save Insurance Summary"
+2. A formatted summary file is generated
+3. Save it locally
+
+The downloaded summary includes:
+
+- Section-wise breakdown
+- Bullet-point highlights
+- Page references
+
+Useful for sharing or offline review.
+
+---
+
 # New Policy
 
-To analyze a different policy:
+To analyze another policy:
 
 1. Click "New Policy"
 2. Upload a new PDF
-3. The previous document context is cleared
-4. A new document ID is created
+3. Previous document context is cleared
+4. A new document session is created
 
 Each policy is processed independently.
 
@@ -178,26 +177,26 @@ Each policy is processed independently.
 
 # Confidence Levels
 
-Each generated section and response includes a confidence level.
+Each generated output includes a confidence level.
 
 Confidence is based on:
 
-- Citation density
 - Citation validity
+- Number of supporting citations
 - Retrieval strength
-- Structural validation checks
+- Validation checks
 
-Confidence indicates reliability relative to the document, not legal correctness.
+It indicates how well the output is supported by the document, not legal accuracy.
 
 ---
 
 # Evaluation Metrics
 
-The system can evaluate summary quality using three metrics.
+PolicyExplainer evaluates summary quality using three metrics.
 
 ## 1. Faithfulness
 
-Measures whether summary bullets are supported by cited document text.
+Measures whether each summary statement is supported by cited text.
 
 Higher score = stronger grounding.
 
@@ -205,24 +204,46 @@ Higher score = stronger grounding.
 
 ## 2. Completeness
 
-Measures coverage across important policy sections using weighted scoring.
+Measures how well the summary covers key policy sections.
 
-Higher score = more comprehensive summary.
+Higher score = more comprehensive coverage.
 
 ---
 
 ## 3. Simplicity
 
-Measures how much easier the summary is to understand compared to the original policy text.
+Measures how easy the summary is to understand compared to the original policy.
 
-Simplicity considers:
+Considers:
 
-- Reduction in sentence complexity
-- Lower jargon density
+- Sentence simplicity
+- Reduced jargon
 - Improved readability
-- Structural clarity through bullet formatting
+- Clear structure
 
-Higher score = clearer explanation.
+Higher score = easier to understand.
+
+---
+
+# What Happens Behind the Scenes
+
+**When you upload a policy:**
+
+- The document is parsed and cleaned
+- Text is split into chunks
+- Embeddings are generated for retrieval
+
+**When generating outputs:**
+
+- Relevant sections are retrieved
+- The model generates structured responses
+- Citations are validated
+- Unsupported content is removed
+
+**When evaluating:**
+
+- Outputs are compared against source text
+- Scores are computed deterministically
 
 ---
 
@@ -232,10 +253,10 @@ PolicyExplainer:
 
 - Does not provide medical advice
 - Does not provide legal advice
-- Does not interpret policy intent
-- Cannot extract text from scanned PDFs without OCR
+- Does not interpret intent beyond document text
+- Cannot process scanned PDFs without OCR
 
-If a PDF contains only images, ingestion may fail.
+If your PDF is image-based, text extraction may fail.
 
 ---
 
@@ -243,20 +264,20 @@ If a PDF contains only images, ingestion may fail.
 
 For best results:
 
-- Ask specific, focused questions
-- Review citations for critical decisions
-- Use section summaries before detailed questions
-- Generate FAQs for quick insights
-- Download summaries for offline review
+- Ask specific and clear questions
+- Review citations for important decisions
+- Start with the summary before asking questions
+- Use FAQs for quick understanding
+- Download summaries for reference
 
 ---
 
 # Data Handling
 
-- Uploaded documents are stored locally on the server.
-- Documents are not used for model training.
-- API keys are stored in environment variables.
-- Documents may be deleted depending on deployment configuration.
+- Uploaded documents are stored locally
+- Documents are not used for model training
+- API keys are stored securely in environment variables
+- Data retention depends on deployment setup
 
 ---
 
@@ -264,13 +285,13 @@ For best results:
 
 PolicyExplainer is designed to make health insurance policies:
 
-- Transparent
+- Clear
+- Structured
 - Grounded
 - Measurable
-- Easier to understand
 
-The system prioritizes reliability and clarity over speculation.
+It prioritizes reliability and transparency over speculation.
 
 ---
 
-End of User Guide.
+*End of User Guide.*
